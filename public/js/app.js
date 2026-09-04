@@ -97,12 +97,6 @@ const state = window.state = {    products: [],
   }
 
   function setPage(id) {
-    const pages = document.querySelectorAll('.page-section');
-
-    if (pages.length) {
-      pages.forEach(x => x.classList.remove('active'));
-    }
-
     const pageId =
       id === 'store' ? 'store-page' :
       id === 'admin' ? 'admin-page' :
@@ -115,13 +109,27 @@ const state = window.state = {    products: [],
       return;
     }
 
-    if (pageId === 'store-page' || pageId === 'admin-page') {
-      document.getElementById('store-page')?.classList.add('hidden');
-      document.getElementById('admin-page')?.classList.add('hidden');
-      page.classList.remove('hidden');
-    } else {
-      page.classList.add('active');
-    }
+    document
+      .querySelectorAll('.page-section')
+      .forEach(x => x.classList.remove('active'));
+
+    // O histórico mostra que a versão estável usava apenas
+    // .page-section + .active. Não misturamos .hidden com .active,
+    // porque isso cria estados visuais diferentes entre as páginas.
+    document
+      .getElementById('store-page')
+      ?.classList.remove('hidden');
+    document
+      .getElementById('admin-page')
+      ?.classList.remove('hidden');
+    document
+      .getElementById('login-page')
+      ?.classList.remove('hidden');
+    document
+      .getElementById('reset-page')
+      ?.classList.remove('hidden');
+
+    page.classList.add('active');
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -888,6 +896,9 @@ const state = window.state = {    products: [],
   }
 
   async function afterLogin() {
+    // Confirmamos a sessão primeiro. A versão historicamente estável
+    // abria o painel antes de carregar os dados administrativos.
+    // Assim, uma falha isolada de dashboard não impede a entrada no ADM.
     state.user = await api('/auth/me');
 
     setPage('admin-page');
