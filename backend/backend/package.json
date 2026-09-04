@@ -6,7 +6,9 @@
   "scripts": {
     "build": "npm run prisma:generate && npm run backend:build",
     "backend:build": "npx tsc -p backend/backend/tsconfig.json",
-    "prisma:generate": "npx prisma generate --schema=backend/backend/prisma/schema.prisma"
+    "prisma:generate": "npx prisma generate --schema=backend/backend/prisma/schema.prisma",
+    "test": "npx tsx --test tests/*.test.ts",
+    "e2e": "npx playwright test"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

@@ -7,7 +7,7 @@ test('admin can create a product and store exposes it', async ({ page }) => {
   await page.locator('#login-email').fill(process.env.ADMIN_EMAIL || 'e2e@atelier.test');
   await page.locator('#login-password').fill(process.env.ADMIN_PASSWORD || 'e2e-password-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.locator('#admin-page')).toHaveClass(/active/);
+  await expect(page.locator('#admin-page')).toBeVisible();
   await page.getByRole('button', { name: 'Produtos' }).click();
   await page.getByRole('button', { name: 'Novo produto' }).click();
   await page.locator('#prod-name').fill('E2E Produto');

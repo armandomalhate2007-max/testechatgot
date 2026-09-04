@@ -42,6 +42,8 @@ const DELIVERY_MAX_KM = Number(process.env.DELIVERY_MAX_KM || 100);
 const SESSION_COOKIE = 'atelier_session';
 const CSRF_COOKIE = 'atelier_csrf';
 const TOTP_KEY_HEX = process.env.TOTP_ENCRYPTION_KEY || '';
+const BLOB_STORE_ID = process.env.BLOB_STORE_ID || process.env.imagem_STORE_ID || process.env.IMAGEM_STORE_ID || '';
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 if (process.env.NODE_ENV === 'production' && !/^[0-9a-fA-F]{64}$/.test(TOTP_KEY_HEX)) {
   throw new Error('TOTP_ENCRYPTION_KEY must be a 32-byte hex key in production');
 }
@@ -83,7 +85,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // mas uploads feitos em produção na Vercel não sobrevivem — usar um storage externo (S3/R2/Vercel Blob).
 const UPLOAD_DIR = process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/uploads' : path.resolve(__dirname, '../uploads'));
 await mkdir(UPLOAD_DIR, { recursive: true });
-await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 8 } });
+await app.register(multipart, { limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 8 } });
 await app.register(fastifyStatic, { root: UPLOAD_DIR, prefix: '/uploads/', index: false, decorateReply: false });
 
 function newToken(bytes = 32) { return randomBytes(bytes).toString('base64url'); }
@@ -359,7 +361,8 @@ app.post('/api/uploads/image', { preHandler: requireCsrf }, async (req: AuthRequ
       const blob = await put(`products/${filename}`, buffer, {
         access: 'public',
         contentType: part.mimetype,
-        addRandomSuffix: false
+        addRandomSuffix: false,
+        ...(BLOB_STORE_ID ? { storeId: BLOB_STORE_ID } : {})
       });
       await audit(req.userId, 'IMAGE_UPLOADED', 'Upload', filename, { mimeType: part.mimetype, bytes: buffer.length, storage: 'vercel-blob' });
       return reply.code(201).send({ imageUrl: blob.url });

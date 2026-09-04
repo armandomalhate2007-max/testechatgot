@@ -6,29 +6,34 @@
     "build": "npm run prisma:generate && npm run backend:build",
     "backend:build": "npx tsc -p backend/backend/tsconfig.json",
     "prisma:generate": "npx prisma generate --schema=backend/backend/prisma/schema.prisma",
-    "test": "npx tsx --test backend/backend/tests/*.test.ts"
+    "test": "cd backend/backend && npx tsx --test tests/*.test.ts",
+    "e2e": "cd backend/backend && npx playwright test"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",
     "@fastify/cors": "^10.0.0",
+    "@fastify/formbody": "^8.0.2",
     "@fastify/helmet": "^12.0.0",
     "@fastify/multipart": "^9.0.0",
     "@fastify/rate-limit": "^10.0.0",
     "@fastify/static": "^8.0.0",
     "@prisma/client": "^6.0.0",
+    "@vercel/blob": "^2.0.0",
     "argon2": "^0.41.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.0",
     "fastify": "^5.0.0",
+    "jsonwebtoken": "^9.0.2",
     "otplib": "^12.0.0",
-    "zod": "^3.23.0",
-    "@vercel/node": "^3.2.0"
+    "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/node": "^22.0.0",
+    "@vercel/node": "^3.2.0",
     "prisma": "^6.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0",
-    "@playwright/test": "^1.48.0"
+    "typescript": "^5.6.0"
   },
   "version": "2.8.1",
   "engines": {

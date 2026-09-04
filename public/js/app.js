@@ -891,7 +891,7 @@ const state = window.state = {    products: [],
 
     setPage('admin-page');
 
-    document.getElementById('admin-login')?.classList.add('hidden');
+    (document.getElementById('admin-login') || document.getElementById('login-page'))?.classList.add('hidden');
     document.getElementById('admin-content')?.classList.remove('hidden');
 
     await loadAdmin();
@@ -1167,9 +1167,9 @@ const state = window.state = {    products: [],
   function previewPhotoFile(index, input) {
     const file = input?.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 4 * 1024 * 1024) {
       input.value = '';
-      toast('Cada imagem deve ter no máximo 5 MB.', true);
+      toast('Cada imagem deve ter no máximo 4 MB.', true);
       return;
     }
     const reader = new FileReader();
@@ -1703,8 +1703,8 @@ const state = window.state = {    products: [],
       for (let i = 0; i < photoInputs.length; i++) {
         const file = photoInputs[i]?.files?.[0];
         if (!file) continue;
-        if (file.size > 5 * 1024 * 1024) {
-          throw new Error(`A imagem ${i + 1} não pode ultrapassar 5 MB.`);
+        if (file.size > 4 * 1024 * 1024) {
+          throw new Error(`A imagem ${i + 1} não pode ultrapassar 4 MB.`);
         }
         const uploaded = await uploadImage(file);
         const url = uploaded?.imageUrl || uploaded?.url;
@@ -1745,7 +1745,7 @@ const state = window.state = {    products: [],
       // Mantém o utilizador no painel Admin depois de guardar.
       document.getElementById('prod-modal')?.classList.add('hidden');
       setPage('admin-page');
-      document.getElementById('admin-login')?.classList.add('hidden');
+      (document.getElementById('admin-login') || document.getElementById('login-page'))?.classList.add('hidden');
       document.getElementById('admin-content')?.classList.remove('hidden');
 
       // Atualiza apenas os dados administrativos; não recarrega a loja.

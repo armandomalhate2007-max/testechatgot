@@ -1,45 +1,32 @@
-# Atelier — auditoria de pré-produção (v23)
+# Atelier — auditoria consolidada v28
 
-## Estado
-**Beta avançado / pré-produção.**
+Este ficheiro substitui as conclusões operacionais antigas deste documento.
 
-## Correções desta ronda
+## Estado atual
 
-- Corrigida uma falha de inicialização causada por `COOKIE_SAME_SITE` ser consultado antes da sua declaração.
-- Produção agora exige `COOKIE_SECURE=true` e `FRONTEND_ORIGIN` em HTTPS.
-- Webhook de recuperação de password tem timeout de 5 segundos.
-- Uploads validam não apenas MIME declarado, mas também assinatura/magic bytes de JPEG, PNG e WebP.
-- Upload passa a gravar o buffer validado de forma exclusiva.
+**Pré-produção avançada.** O código foi consolidado para uma arquitetura Vercel + Neon + Vercel Blob. Ainda é necessária validação operacional no ambiente real.
 
-## Bloqueios restantes para produção real
+## Correções/consolidações desta revisão
 
-1. Executar a suíte completa com dependências reais, PostgreSQL e Chromium.
-2. Versionar `package-lock.json` e migrar CI para `npm ci`.
-3. Configurar reverse proxy/TLS/secret manager.
-4. Migrar imagens para object storage quando houver mais de uma instância da API.
-5. Integrar fornecedor de e-mail real e confirmar entrega/retry/bounces.
-6. Adicionar recovery codes para 2FA.
-7. Testar backup + restore de PostgreSQL e uploads.
-8. Fazer teste de carga realista além do smoke test.
-9. Rever CSP/self-hosting do Tailwind CDN antes de produção pública.
-10. Completar UX/a11y e os fluxos de checkout/admin em E2E.
+- Frontend de produção (`public/`) e cópia `frontend/` sincronizados.
+- Contrato de IDs HTML alinhado com `app.js`, incluindo painel, checkout, segurança, definições e modal de produto.
+- Suporte de 1–6 fotografias alinhado entre UI, frontend, API e Prisma.
+- Upload de produção usa Vercel Blob público; Neon guarda URLs.
+- Limite de imagem reduzido para 4 MB para não encostar ao limite de payload das funções Vercel.
+- Migração de reconciliação criada para `Product.images`, `Payment` e `PaymentEvent`.
+- Scripts `test`/`e2e` da raiz passam a executar a partir de `backend/backend`, onde os testes esperam estar.
+- Documentação Vercel/produção atualizada para não recomendar filesystem persistente em `/tmp` nem `npm ci` sem lockfile.
+- Limpeza de uploads locais passou a considerar também `Product.images`.
+
+## Validação que ainda deve ser feita fora deste ambiente
+
+1. `npm install`/lockfile e build real na Vercel.
+2. `npx prisma migrate deploy` numa cópia da base e na Neon de produção.
+3. Login/admin/checkout E2E.
+4. Upload de fotografia e leitura da URL pública do Blob.
+5. M-Pesa/e-Mola sandbox ponta a ponta.
+6. Backup e restore PostgreSQL.
 
 ## Veredito
-Não há um bloqueador arquitetural óbvio identificado por inspeção. O principal risco agora é **validação operacional real** e configuração segura da infraestrutura de produção.
 
-## v24 final consolidation
-
-### Implemented
-- 2FA recovery codes are generated on activation, stored only as Argon2id hashes, and consumed once.
-- Recovery codes can be regenerated after a valid current TOTP code.
-- Password reset UI only exposes the reset form when a reset token exists in the URL.
-- PostgreSQL backup/restore scripts added (`npm run backup`, `npm run restore`).
-- Orphan upload cleanup script added (`npm run cleanup:uploads`).
-- End-to-end admin product flow added.
-- Production checklist added.
-
-### Remaining environment-dependent GO/NO-GO
-- No package-lock could be generated because the npm registry is unavailable from this build environment.
-- Full PostgreSQL + Chromium E2E execution still requires a network-enabled/CI environment.
-- Tailwind is still loaded from the CDN in the current frontend; vendor/bundle it before a strict offline production deployment.
-- S3/R2 object storage remains an operational deployment decision; local persistent volume is supported for single-node deployments.
+Não declarar “100% pronto” apenas pela inspeção do ZIP. O código está estruturado para a arquitetura escolhida, mas o GO final depende dos testes reais acima.
