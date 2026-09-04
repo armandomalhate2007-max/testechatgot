@@ -1052,7 +1052,7 @@ const state = window.state = {    products: [],
         true
       );
 
-      setPage('login-page');
+      return;
     }
   }
 
@@ -1092,30 +1092,23 @@ const state = window.state = {    products: [],
   }
 
   function renderDashboard(s) {
-    document.getElementById(
-      'stat-sales'
-    ).textContent = s.salesToday;
+    const sales = document.getElementById('stat-sales');
+    if (sales) sales.textContent = s.salesToday ?? 0;
 
-    document.getElementById(
-      'stat-orders'
-    ).textContent = s.ordersCount;
+    const orders = document.getElementById('stat-orders');
+    if (orders) orders.textContent = s.ordersCount ?? 0;
 
-    document.getElementById(
-      'stat-products'
-    ).textContent = s.productsCount;
+    const products = document.getElementById('stat-products');
+    if (products) products.textContent = s.productsCount ?? 0;
 
-    document.getElementById(
-      'stat-revenue'
-    ).innerHTML =
-      Object.entries(
-        s.revenueByCurrency
-      )
-        .filter(([, v]) => v > 0)
-        .map(
-          ([c, v]) =>
-            `<div>${money(v, c)}</div>`
-        )
-        .join('') || '0';
+    const revenue = document.getElementById('stat-revenue');
+    if (revenue) {
+      revenue.innerHTML =
+        Object.entries(s.revenueByCurrency || {})
+          .filter(([, v]) => v > 0)
+          .map(([c, v]) => `<div>${money(v, c)}</div>`)
+          .join('') || '0';
+    }
   }
 
   function productImages(p) {
