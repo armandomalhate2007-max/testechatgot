@@ -1,7 +1,7 @@
 (() => {
   const { api, uploadImage } = window.AtelierAPI;
 
-  const state = {
+  window.state = {
     products: [],
     adminProducts: [],
     cart: [],
