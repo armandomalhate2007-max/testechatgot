@@ -150,21 +150,6 @@ app.get('/api/health', async (req, reply) => {
   catch { return reply.code(503).send({ ok: false, service: 'atelier-api', requestId: req.id }); }
 });
 
-app.post('/api/setup/admin', async (req, reply) => {
-  const secret = process.env.SETUP_SECRET;
-  if (!secret) return reply.code(403).send({ error: 'SETUP_SECRET não configurado no servidor' });
-  const body = req.body as { secret?: string; email?: string; password?: string };
-  if (body?.secret !== secret) return reply.code(403).send({ error: 'Segredo inválido' });
-  const existing = await prisma.user.count();
-  if (existing > 0) return reply.code(409).send({ error: 'Já existe pelo menos um utilizador; esta rota só funciona na primeira vez' });
-  if (!body.email || !body.password || body.password.length < 8) {
-    return reply.code(400).send({ error: 'email e password (mínimo 8 caracteres) são obrigatórios' });
-  }
-  const passwordHash = await argon2.hash(body.password, { type: argon2.argon2id });
-  const user = await prisma.user.create({ data: { email: body.email, passwordHash, role: 'ADMIN' } });
-  return reply.code(201).send({ ok: true, userId: user.id, email: user.email });
-});
-
 app.setErrorHandler((error, req, reply) => {
   req.log.error({ err: error, requestId: req.id }, 'request_failed');
   if (reply.sent) return;

@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run prisma:generate && npm run prisma:migrate && npm run backend:build",
+    "build": "npm run prisma:generate && npm run backend:build",
     "backend:build": "npx tsc -p backend/backend/tsconfig.json",
     "prisma:generate": "npx prisma generate --schema=backend/backend/prisma/schema.prisma",
-    "prisma:migrate": "npx prisma migrate deploy --schema=backend/backend/prisma/schema.prisma",
     "test": "npx tsx --test backend/backend/tests/*.test.ts"
   },
   "dependencies": {
