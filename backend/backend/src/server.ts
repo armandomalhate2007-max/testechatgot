@@ -313,7 +313,32 @@ app.get('/api/admin/products', { preHandler: requireAdmin }, async (req, reply) 
 });
 app.get('/api/products/:id', async (req: any, reply) => { const p = await prisma.product.findFirst({ where: { id: req.params.id, active: true }, include: { sizes: true } }); if (!p) return reply.code(404).send({ error: 'Produto não encontrado' }); return p; });
 
-const productSchema = z.object({ name: z.string().trim().min(1).max(120), ref: z.string().trim().min(1).max(40), description: z.string().trim().max(500).optional(), price: z.number().positive().finite().refine(v => /^\d+(?:\.\d{1,2})?$/.test(v.toFixed(2)), 'Preço inválido'), currency: z.enum(['MT','EUR','USD','BRL','GBP']).default('MT'), imageUrl: z.string().trim().max(2000).refine(v => !v || /^https?:\/\//i.test(v) || /^\/uploads\/[A-Za-z0-9._-]+$/.test(v), 'URL de imagem inválida').optional().or(z.literal('')), limited: z.boolean().default(false), active: z.boolean().default(true), sizes: z.array(z.object({ size: z.string().trim().min(1).max(20), stock: z.number().int().min(0).max(100000) })).optional() });
+const imageUrlSchema = z.string()
+  .trim()
+  .max(2000)
+  .refine(
+    v => !v || /^https?:\/\//i.test(v) || /^\/uploads\/[A-Za-z0-9._-]+$/.test(v),
+    'URL de imagem inválida'
+  );
+
+const productSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  ref: z.string().trim().min(1).max(40),
+  description: z.string().trim().max(500).optional(),
+  price: z.number()
+    .positive()
+    .finite()
+    .refine(v => /^\d+(?:\.\d{1,2})?$/.test(v.toFixed(2)), 'Preço inválido'),
+  currency: z.enum(['MT','EUR','USD','BRL','GBP']).default('MT'),
+  imageUrl: imageUrlSchema.optional().or(z.literal('')),
+  images: z.array(imageUrlSchema).max(6).default([]),
+  limited: z.boolean().default(false),
+  active: z.boolean().default(true),
+  sizes: z.array(z.object({
+    size: z.string().trim().min(1).max(20),
+    stock: z.number().int().min(0).max(100000)
+  })).optional()
+});
 
 app.post('/api/uploads/image', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => {
   const part = await req.file();
@@ -351,9 +376,100 @@ app.post('/api/delivery/quote', async (req, reply) => {
   }
 });
 
-app.post('/api/products', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => { const p = productSchema.safeParse(req.body); if (!p.success) return reply.code(400).send({ error: 'Dados de produto inválidos', details: p.error.flatten() }); try { const created = await prisma.product.create({ data: { name:p.data.name, ref:p.data.ref, description:p.data.description||null, price:p.data.price, currency:p.data.currency, imageUrl:p.data.imageUrl||null, limited:p.data.limited, active:p.data.active, sizes:{ create:(p.data.sizes||[]).map(s=>({size:s.size,stock:s.stock})) } }, include:{sizes:true} }); await audit(req.userId, 'PRODUCT_CREATED', 'Product', created.id, { ref: created.ref }); return reply.code(201).send(created); } catch { return reply.code(409).send({ error:'Referência de produto já existe' }); } });
+app.post('/api/products', { preHandler: requireCsrf }, async (req: AuthRequest, reply: FastifyReply) => {
+  const p = productSchema.safeParse(req.body);
+  if (!p.success) return reply.code(400).send({ error: 'Dados de produto inválidos', details: p.error.flatten() });
 
-app.patch('/api/products/:id', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => { const p = productSchema.partial().safeParse(req.body); if (!p.success) return reply.code(400).send({ error:'Dados inválidos' }); try { const updated = await prisma.$transaction(async tx => { const product = await tx.product.update({ where:{id:(req.params as any).id}, data:{name:p.data.name,ref:p.data.ref,description:p.data.description,imageUrl:p.data.imageUrl,limited:p.data.limited,active:p.data.active,price:p.data.price,currency:p.data.currency} }); if (p.data.sizes) { for (const s of p.data.sizes) await tx.productSize.upsert({where:{productId_size:{productId:product.id,size:s.size}},create:{productId:product.id,size:s.size,stock:s.stock},update:{stock:s.stock}}); } return tx.product.findUnique({where:{id:product.id},include:{sizes:true}}); }); await audit(req.userId, 'PRODUCT_UPDATED', 'Product', updated?.id); return updated; } catch { return reply.code(400).send({error:'Não foi possível atualizar'}); } });
+  try {
+    const images = p.data.images.length
+      ? p.data.images
+      : (p.data.imageUrl ? [p.data.imageUrl] : []);
+
+    const created = await prisma.product.create({
+      data: {
+        name: p.data.name,
+        ref: p.data.ref,
+        description: p.data.description || null,
+        price: p.data.price,
+        currency: p.data.currency,
+        imageUrl: images[0] || null,
+        images,
+        limited: p.data.limited,
+        active: p.data.active,
+        sizes: {
+          create: (p.data.sizes || []).map(s => ({ size: s.size, stock: s.stock }))
+        }
+      },
+      include: { sizes: true }
+    });
+
+    await audit(req.userId, 'PRODUCT_CREATED', 'Product', created.id, { ref: created.ref });
+    return reply.code(201).send(created);
+  } catch {
+    return reply.code(409).send({ error: 'Referência de produto já existe' });
+  }
+});
+app.patch('/api/products/:id', { preHandler: requireCsrf }, async (req: AuthRequest, reply: FastifyReply) => {
+  const p = productSchema.partial().safeParse(req.body);
+  if (!p.success) return reply.code(400).send({ error: 'Dados inválidos' });
+
+  try {
+    const updated = await prisma.$transaction(async tx => {
+      const current = await tx.product.findUnique({
+        where: { id: (req.params as any).id }
+      });
+
+      if (!current) throw new Error('NOT_FOUND');
+
+      const currentImages = Array.isArray(current.images)
+        ? (current.images as string[])
+        : (current.imageUrl ? [current.imageUrl] : []);
+
+      const images = p.data.images !== undefined
+        ? p.data.images
+        : currentImages;
+
+      const product = await tx.product.update({
+        where: { id: (req.params as any).id },
+        data: {
+          name: p.data.name,
+          ref: p.data.ref,
+          description: p.data.description,
+          imageUrl: images[0] || p.data.imageUrl || null,
+          images,
+          limited: p.data.limited,
+          active: p.data.active,
+          price: p.data.price,
+          currency: p.data.currency
+        }
+      });
+
+      if (p.data.sizes) {
+        for (const s of p.data.sizes) {
+          await tx.productSize.upsert({
+            where: { productId_size: { productId: product.id, size: s.size } },
+            create: { productId: product.id, size: s.size, stock: s.stock },
+            update: { stock: s.stock }
+          });
+        }
+      }
+
+      return tx.product.findUnique({
+        where: { id: product.id },
+        include: { sizes: true }
+      });
+    });
+
+    await audit(req.userId, 'PRODUCT_UPDATED', 'Product', updated?.id);
+    return updated;
+  } catch (e: any) {
+    return reply.code(e?.message === 'NOT_FOUND' ? 404 : 400).send({
+      error: e?.message === 'NOT_FOUND'
+        ? 'Produto não encontrado'
+        : 'Não foi possível atualizar'
+    });
+  }
+});
 app.delete('/api/products/:id', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => { try { await prisma.product.update({ where:{id:(req.params as any).id}, data:{active:false} }); await audit(req.userId, 'PRODUCT_DEACTIVATED', 'Product', (req.params as any).id); return {ok:true}; } catch { return reply.code(404).send({error:'Produto não encontrado'}); } });
 app.post('/api/products/:id/restore', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => { try { const p=await prisma.product.update({ where:{id:(req.params as any).id}, data:{active:true}, include:{sizes:true} }); await audit(req.userId,'PRODUCT_RESTORED','Product',p.id,{ref:p.ref}); return p; } catch { return reply.code(404).send({error:'Produto não encontrado'}); } });
 
