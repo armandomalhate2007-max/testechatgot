@@ -150,24 +150,6 @@ const state = window.state = {    products: [],
     }
   }
 
-  function getProductSizes(product) {
-    if (!product) return [];
-    return Array.isArray(product.sizes) ? product.sizes : [];
-  }
-
-  function getProductStock(product) {
-    return getProductSizes(product).reduce((total, size) => {
-      const value = Number(size?.stock);
-      return total + (Number.isFinite(value) && value > 0 ? value : 0);
-    }, 0);
-  }
-
-  function getSizeStock(product, size) {
-    const found = getProductSizes(product).find(item => item?.size === size);
-    const value = Number(found?.stock);
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }
-
   function renderStore() {
     const title = document.getElementById('store-title');
     const box =
@@ -183,7 +165,8 @@ const state = window.state = {    products: [],
     box.innerHTML = state.products.length
       ? state.products
           .map(p => {
-            const stock = getProductStock(p);
+            const stock =
+              p.sizes?.reduce((s, x) => s + x.stock, 0) || 0;
 
             return `
               <article class="flex-none w-72 bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm flex flex-col">
@@ -296,8 +279,8 @@ const state = window.state = {    products: [],
       </label>
 
       <div class="flex flex-wrap gap-2">
-        ${getProductSizes(p)
-          .filter(s => Number(s.stock) > 0)
+        ${p.sizes
+          .filter(s => s.stock > 0)
           .map(
             s => `
               <button
@@ -1266,16 +1249,6 @@ const state = window.state = {    products: [],
                 </div>
               </div>
 
-              <div class="mt-3 rounded-lg bg-gray-50 border p-3">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-semibold text-gray-500 uppercase">Stock total</span>
-                  <strong>${getProductStock(p)}</strong>
-                </div>
-                <div class="grid grid-cols-4 gap-2 mt-2 text-xs text-gray-500">
-                  ${['P','M','G','GG'].map(size => `<span>${size}: <b class="text-gray-800">${getSizeStock(p, size)}</b></span>`).join('')}
-                </div>
-              </div>
-
               <div class="flex gap-2 mt-4">
                 <button
                   onclick="editProduct('${p.id}')"
@@ -2122,7 +2095,7 @@ const state = window.state = {    products: [],
     document.getElementById('prod-limited').checked = !!p.limited;
 
     for (const size of ['P', 'M', 'G', 'GG']) {
-      const value = getSizeStock(p, size);
+      const value = p.sizes?.find(x => x.size === size)?.stock || 0;
       const el = document.getElementById(`stock-${size}`) || document.getElementById(`prod-stock-${size.toLowerCase()}`);
       if (el) el.value = value;
     }

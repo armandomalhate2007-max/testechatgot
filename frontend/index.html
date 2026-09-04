@@ -14,5 +14,65 @@
 <div id="product-modal" class="fixed inset-0 bg-black/50 z-50 hidden p-3 sm:p-4 overflow-y-auto overscroll-contain"><div class="bg-white max-w-lg mx-auto my-4 rounded-2xl p-5 max-h-[calc(100vh-2rem)] overflow-y-auto" id="modal-product"></div></div>
 <div id="cart-modal" class="fixed inset-0 bg-black/50 z-50 hidden p-3 sm:p-4 overflow-y-auto overscroll-contain"><div class="bg-white max-w-lg mx-auto my-4 rounded-2xl p-5 max-h-[calc(100vh-2rem)] overflow-y-auto"><div class="flex justify-between"><h3 class="font-bold text-xl">Carrinho</h3><button onclick="document.getElementById('cart-modal').classList.add('hidden')">✕</button></div><div id="cart-items" class="my-4"></div><p class="font-bold text-right mb-5">Subtotal: <span id="cart-total">—</span></p><div class="border-t pt-4 space-y-3"><div><p class="text-xs font-semibold uppercase mb-2">Entrega</p><div class="grid grid-cols-2 gap-2"><button id="fulfillment-delivery" type="button" onclick="setFulfillment('DELIVERY')" class="border rounded-lg py-2 text-sm bg-zinc-900 text-white">Entrega</button><button id="fulfillment-pickup" type="button" onclick="setFulfillment('PICKUP')" class="border rounded-lg py-2 text-sm">Retirada</button></div><p id="delivery-quote" class="text-xs text-gray-500 mt-2">A entrega é calculada pela localização no momento da confirmação.</p></div><input id="checkout-name" placeholder="Nome" class="w-full border rounded p-2"><input id="checkout-phone" placeholder="Telefone" class="w-full border rounded p-2"><div class="grid grid-cols-2 gap-2"><input id="checkout-country" placeholder="País" class="border rounded p-2"><input id="checkout-city" placeholder="Cidade" class="border rounded p-2"></div><textarea id="checkout-address" placeholder="Morada" class="w-full border rounded p-2"></textarea><div><label class="text-xs font-semibold uppercase">Pagamento</label><select id="checkout-payment" class="w-full border rounded p-2 mt-1"><option value="MPESA">M-Pesa</option><option value="EMOLA">e-Mola</option></select><p class="text-xs text-gray-500 mt-1">O pagamento é automático. Receberá o pedido de autorização no número indicado e a encomenda só será confirmada após a validação do pagamento.</p></div><button onclick="checkout()" class="w-full bg-emerald-600 text-white py-3 rounded-lg">Confirmar pedido</button></div></div></div>
 <div id="tfa-modal" class="fixed inset-0 bg-black/50 z-50 hidden p-4"><div class="bg-white max-w-sm mx-auto mt-28 rounded-2xl p-5"><h3 class="font-bold text-lg">Verificação em dois passos</h3><p class="text-sm text-gray-500 my-3">Introduza o código de 6 dígitos da sua aplicação autenticadora.</p><input id="tfa-code" maxlength="13" class="w-full border rounded-lg p-3 text-center tracking-[.5em]" placeholder="000000"><button type="button" onclick="verify2fa(event)" class="w-full mt-4 bg-zinc-900 text-white py-3 rounded-lg">Verificar</button><p class="text-xs text-gray-500 mt-3">Também pode usar um código de recuperação, se tiver um.</p></div></div>
-<div id="prod-modal" class="fixed inset-0 bg-black/50 z-50 hidden p-3 sm:p-5"><div class="bg-white w-full max-w-2xl mx-auto my-2 sm:my-6 rounded-2xl shadow-2xl overflow-hidden max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col"><div class="px-5 py-4 border-b flex items-center justify-between shrink-0"><div><h3 id="prod-modal-title" class="font-bold text-xl">Novo produto</h3><p class="text-xs text-gray-500 mt-1">Crie o produto e adicione até 6 fotografias.</p></div><button type="button" onclick="document.getElementById('prod-modal').classList.add('hidden')" class="w-9 h-9 rounded-full border text-gray-500 hover:bg-gray-50">✕</button></div><div class="overflow-y-auto p-5 space-y-6"><input id="prod-id" type="hidden"><input id="prod-image" type="hidden"><section><h4 class="font-semibold text-sm mb-3">Informações</h4><div class="grid md:grid-cols-2 gap-3"><div><label class="text-xs font-semibold text-gray-500">Nome</label><input id="prod-name" placeholder="Ex.: Vestido Aura" class="w-full border rounded-lg p-3 mt-1"></div><div><label class="text-xs font-semibold text-gray-500">Referência</label><input id="prod-ref" placeholder="Ex.: AUR-001" class="w-full border rounded-lg p-3 mt-1"></div></div><label class="text-xs font-semibold text-gray-500 block mt-3">Descrição</label><textarea id="prod-desc" rows="4" placeholder="Descreva o produto..." class="w-full border rounded-lg p-3 mt-1"></textarea><div class="grid md:grid-cols-2 gap-3 mt-3"><div><label class="text-xs font-semibold text-gray-500">Preço</label><input id="prod-price" type="number" min="0" step="0.01" placeholder="0,00" class="w-full border rounded-lg p-3 mt-1"></div><div><label class="text-xs font-semibold text-gray-500">Moeda</label><select id="prod-currency" class="w-full border rounded-lg p-3 mt-1"><option>MT</option><option>EUR</option><option>USD</option><option>BRL</option><option>GBP</option></select></div></div></section><section><div class="flex items-end justify-between gap-3 mb-3"><div><h4 class="font-semibold text-sm">Fotografias</h4><p class="text-xs text-gray-500 mt-1">Escolha quantas pretende publicar.</p></div><div><label class="text-xs font-semibold text-gray-500">Quantidade</label><select id="prod-image-count" onchange="renderPhotoInputs()" class="border rounded-lg p-2.5 ml-2"><option value="1">1 foto</option><option value="2">2 fotos</option><option value="3">3 fotos</option><option value="4">4 fotos</option><option value="5">5 fotos</option><option value="6">6 fotos</option></select></div></div><div id="prod-image-inputs" class="grid md:grid-cols-2 gap-3"></div><p class="text-[11px] text-gray-400 mt-3">A primeira fotografia será a principal. JPG, PNG ou WebP · máximo 4 MB por foto.</p></section><section><div class="flex items-center justify-between mb-3"><div><h4 class="font-semibold text-sm">Stock por tamanho</h4><p class="text-xs text-gray-500 mt-1">Indique a quantidade disponível.</p></div><label class="flex gap-2 items-center text-sm"><input id="prod-limited" type="checkbox"> Edição limitada</label></div><div class="grid grid-cols-4 gap-3">${['P','M','G','GG'].map(s=>`<label class="text-xs font-semibold text-gray-500">${s}<input id="stock-${s}" type="number" min="0" value="0" class="w-full border rounded-lg p-3 mt-1"></label>`).join('')}</div></section></div><div class="px-5 py-4 border-t bg-gray-50 flex gap-3 shrink-0"><button type="button" onclick="document.getElementById('prod-modal').classList.add('hidden')" class="flex-1 border bg-white py-3 rounded-lg font-medium">Cancelar</button><button type="button" onclick="saveProduct()" class="flex-1 bg-zinc-900 text-white py-3 rounded-lg font-medium">Guardar produto</button></div></div></div>
+<div id="prod-modal" class="fixed inset-0 bg-zinc-950/60 backdrop-blur-sm z-50 hidden p-3 sm:p-6">
+  <div class="bg-white w-full max-w-3xl mx-auto my-2 sm:my-6 rounded-3xl shadow-2xl overflow-hidden max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-3rem)] flex flex-col">
+    <div class="px-5 sm:px-7 py-5 border-b bg-white flex items-center justify-between shrink-0">
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">Catálogo</p>
+        <h3 id="prod-modal-title" class="font-bold text-2xl text-zinc-900 mt-1">Novo produto</h3>
+        <p class="text-sm text-zinc-500 mt-1">Configure os dados, fotografias e disponibilidade da peça.</p>
+      </div>
+      <button type="button" onclick="document.getElementById('prod-modal').classList.add('hidden')" class="w-10 h-10 rounded-full border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition">✕</button>
+    </div>
+
+    <div class="overflow-y-auto p-4 sm:p-7 space-y-5 bg-zinc-50/70">
+      <input id="prod-id" type="hidden">
+      <input id="prod-image" type="hidden">
+
+      <section class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+        <div class="mb-4">
+          <h4 class="font-semibold text-base text-zinc-900">Informações do produto</h4>
+          <p class="text-xs text-zinc-500 mt-1">Nome, referência, descrição e preço.</p>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div><label class="text-xs font-semibold text-zinc-600">Nome</label><input id="prod-name" placeholder="Ex.: Vestido Aura" class="w-full border border-zinc-200 rounded-xl p-3 mt-1.5 outline-none focus:ring-2 focus:ring-zinc-200"></div>
+          <div><label class="text-xs font-semibold text-zinc-600">Referência</label><input id="prod-ref" placeholder="Ex.: AUR-001" class="w-full border border-zinc-200 rounded-xl p-3 mt-1.5 outline-none focus:ring-2 focus:ring-zinc-200"></div>
+        </div>
+        <label class="text-xs font-semibold text-zinc-600 block mt-4">Descrição</label>
+        <textarea id="prod-desc" rows="4" placeholder="Descreva o produto..." class="w-full border border-zinc-200 rounded-xl p-3 mt-1.5 outline-none focus:ring-2 focus:ring-zinc-200 resize-y"></textarea>
+        <div class="grid md:grid-cols-2 gap-4 mt-4">
+          <div><label class="text-xs font-semibold text-zinc-600">Preço</label><input id="prod-price" type="number" min="0" step="0.01" placeholder="0,00" class="w-full border border-zinc-200 rounded-xl p-3 mt-1.5 outline-none focus:ring-2 focus:ring-zinc-200"></div>
+          <div><label class="text-xs font-semibold text-zinc-600">Moeda</label><select id="prod-currency" class="w-full border border-zinc-200 rounded-xl p-3 mt-1.5 outline-none focus:ring-2 focus:ring-zinc-200"><option>MT</option><option>EUR</option><option>USD</option><option>BRL</option><option>GBP</option></select></div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+          <div><h4 class="font-semibold text-base text-zinc-900">Fotografias</h4><p class="text-xs text-zinc-500 mt-1">A primeira fotografia será a principal. Até 6 imagens.</p></div>
+          <div class="flex items-center gap-2"><label class="text-xs font-semibold text-zinc-600">Quantidade</label><select id="prod-image-count" onchange="renderPhotoInputs()" class="border border-zinc-200 rounded-xl px-3 py-2.5 text-sm"><option value="1">1 foto</option><option value="2">2 fotos</option><option value="3">3 fotos</option><option value="4">4 fotos</option><option value="5">5 fotos</option><option value="6">6 fotos</option></select></div>
+        </div>
+        <div id="prod-image-inputs" class="grid md:grid-cols-2 gap-3"></div>
+        <p class="text-[11px] text-zinc-400 mt-4">JPG, PNG ou WebP · máximo 4 MB por foto.</p>
+      </section>
+
+      <section class="bg-white rounded-2xl border border-zinc-200 p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div><h4 class="font-semibold text-base text-zinc-900">Stock por tamanho</h4><p class="text-xs text-zinc-500 mt-1">Indique quantas unidades estão disponíveis em cada tamanho.</p></div>
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-zinc-700 cursor-pointer"><input id="prod-limited" type="checkbox" class="w-4 h-4 rounded border-zinc-300"> Edição limitada</label>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <label class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><span class="text-xs font-bold text-zinc-500">P</span><input id="stock-P" type="number" min="0" value="0" class="w-full border border-zinc-200 bg-white rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-zinc-200"></label>
+          <label class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><span class="text-xs font-bold text-zinc-500">M</span><input id="stock-M" type="number" min="0" value="0" class="w-full border border-zinc-200 bg-white rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-zinc-200"></label>
+          <label class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><span class="text-xs font-bold text-zinc-500">G</span><input id="stock-G" type="number" min="0" value="0" class="w-full border border-zinc-200 bg-white rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-zinc-200"></label>
+          <label class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><span class="text-xs font-bold text-zinc-500">GG</span><input id="stock-GG" type="number" min="0" value="0" class="w-full border border-zinc-200 bg-white rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-zinc-200"></label>
+        </div>
+      </section>
+    </div>
+
+    <div class="px-5 sm:px-7 py-4 border-t bg-white flex flex-col-reverse sm:flex-row gap-3 shrink-0">
+      <button type="button" onclick="document.getElementById('prod-modal').classList.add('hidden')" class="flex-1 border border-zinc-200 bg-white py-3 rounded-xl font-medium text-zinc-700 hover:bg-zinc-50">Cancelar</button>
+      <button type="button" onclick="saveProduct()" class="flex-1 bg-zinc-900 text-white py-3 rounded-xl font-medium hover:bg-zinc-800">Guardar produto</button>
+    </div>
+  </div>
+</div>
 <div id="toast" class="hidden"></div><script>window.ATELIER_API_BASE='/api';</script><script src="js/api.js"></script><script src="js/app.js"></script></body></html>
