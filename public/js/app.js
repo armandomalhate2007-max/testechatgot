@@ -144,7 +144,9 @@ const state = window.state = {    products: [],
 
   function renderStore() {
     const title = document.getElementById('store-title');
-    const box = document.getElementById('products');
+    const box =
+      document.getElementById('store-products') ||
+      document.getElementById('products');
 
     if (title) {
       title.textContent = state.settings.shopName || 'Atelier';
@@ -1690,7 +1692,8 @@ const state = window.state = {    products: [],
     }
   }
 
-  async function saveProduct() {
+  async function saveProduct(event) {
+    event?.preventDefault();
     const id = document.getElementById('prod-id')?.value || '';
 
     try {
@@ -1739,10 +1742,15 @@ const state = window.state = {    products: [],
         body: JSON.stringify(body)
       });
 
+      // Mantém o utilizador no painel Admin depois de guardar.
       document.getElementById('prod-modal')?.classList.add('hidden');
+      setPage('admin-page');
+      document.getElementById('admin-login')?.classList.add('hidden');
+      document.getElementById('admin-content')?.classList.remove('hidden');
+
+      // Atualiza apenas os dados administrativos; não recarrega a loja.
       await loadAdmin();
-      await loadStore();
-      toast('Produto guardado.');
+      toast(id ? 'Produto atualizado.' : 'Produto criado com sucesso.');
     } catch (e) {
       toast(e.message || 'Não foi possível guardar o produto.', true);
     }
