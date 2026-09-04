@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Criar administrador — Atelier</title>
+<style>
+  body{font-family:sans-serif;max-width:420px;margin:40px auto;padding:0 16px;color:#111}
+  label{display:block;margin-top:12px;font-weight:600}
+  input{width:100%;padding:8px;margin-top:4px;box-sizing:border-box}
+  button{margin-top:20px;padding:10px 16px;background:#111;color:#fff;border:none;cursor:pointer}
+  #msg{margin-top:16px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h2>Criar conta de administrador (só funciona uma vez)</h2>
+<p>Esta página cria o primeiro utilizador administrador. Só funciona se ainda não existir nenhum utilizador na base de dados.</p>
+<form id="f">
+  <label>Segredo de configuração (SETUP_SECRET)</label>
+  <input type="password" id="secret" required>
+  <label>Email do administrador</label>
+  <input type="email" id="email" required>
+  <label>Palavra-passe (mínimo 8 caracteres)</label>
+  <input type="password" id="password" required minlength="8">
+  <button type="submit">Criar administrador</button>
+</form>
+<div id="msg"></div>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = 'A criar...';
+  try {
+    const res = await fetch('/api/setup/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: document.getElementById('secret').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      msg.textContent = 'Administrador criado com sucesso! Pode já fazer login normalmente com este email e palavra-passe. Pode apagar esta página do repositório agora.';
+    } else {
+      msg.textContent = 'Erro: ' + (data.error || res.status);
+    }
+  } catch (err) {
+    msg.textContent = 'Erro de rede: ' + err.message;
+  }
+});
+</script>
+</body>
+</html>

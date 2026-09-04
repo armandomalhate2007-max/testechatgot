@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { app } from '../backend/backend/src/server.js';
 
-let ready: Promise<void> | undefined;
+let appPromise: Promise<any> | undefined;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  ready ??= Promise.resolve(app.ready());
-  await ready;
+  appPromise ??= import('../backend/backend/src/server.js').then((m) => m.app);
+  const app = await appPromise;
+  await app.ready();
   app.server.emit('request', req, res);
 }
