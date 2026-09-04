@@ -908,7 +908,7 @@
           `/admin/products?q=${encodeURIComponent(
             state.productSearch
           )}&active=${
-            state.productFilter
+            state.productFilter.toLowerCase()
           }&page=${
             state.adminProductPage
           }`
