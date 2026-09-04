@@ -103,14 +103,19 @@ const state = window.state = {    products: [],
       pages.forEach(x => x.classList.remove('active'));
     }
 
-    const page = document.getElementById(id);
+    const pageId =
+      id === 'store' ? 'store-page' :
+      id === 'admin' ? 'admin-page' :
+      id;
+
+    const page = document.getElementById(pageId);
 
     if (!page) {
       console.error(`Página não encontrada: ${id}`);
       return;
     }
 
-    if (id === 'store-page' || id === 'admin-page') {
+    if (pageId === 'store-page' || pageId === 'admin-page') {
       document.getElementById('store-page')?.classList.add('hidden');
       document.getElementById('admin-page')?.classList.add('hidden');
       page.classList.remove('hidden');
