@@ -170,7 +170,10 @@ const state = window.state = {    products: [],
 
             return `
               <article class="flex-none w-72 bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm flex flex-col">
-                <div class="relative bg-gray-100 h-72">
+                <div
+                  class="relative bg-gray-100 h-72 ${stock > 0 ? 'cursor-pointer' : ''}"
+                  ${stock > 0 ? `onclick="openProduct('${p.id}')"` : ''}
+                >
                   <img
                     src="${esc(p.imageUrl || '/placeholder.svg')}"
                     alt="${esc(p.name)}"
@@ -311,7 +314,7 @@ const state = window.state = {    products: [],
         onclick="addToCart('${p.id}')"
         class="w-full mt-4 bg-zinc-900 text-white py-3 rounded-lg"
       >
-        Adicionar ao carrinho
+        Confirmar e adicionar ao carrinho
       </button>
     `;
 
@@ -339,13 +342,21 @@ const state = window.state = {    products: [],
 
     if (!p) return;
 
-    const b = document.querySelector(
+    let b = document.querySelector(
       '.size-choice.bg-zinc-900'
     );
 
+    // Se o produto só tiver um tamanho disponível, seleciona-o
+    // automaticamente. Para vários tamanhos, o cliente escolhe.
     if (!b) {
-      toast('Selecione um tamanho.', true);
-      return;
+      const choices = document.querySelectorAll('.size-choice');
+      if (choices.length === 1) {
+        b = choices[0];
+        b.classList.add('bg-zinc-900', 'text-white');
+      } else {
+        toast('Selecione um tamanho.', true);
+        return;
+      }
     }
 
     const qty = Math.max(
