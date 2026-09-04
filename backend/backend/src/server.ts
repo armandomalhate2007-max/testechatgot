@@ -411,7 +411,10 @@ app.post('/api/products', { preHandler: requireCsrf }, async (req: AuthRequest, 
         limited: p.data.limited,
         active: p.data.active,
         sizes: {
-          create: (p.data.sizes || []).map(s => ({ size: s.size, stock: s.stock }))
+          create: (p.data.sizes?.length
+            ? p.data.sizes
+            : ['P', 'M', 'G', 'GG'].map(size => ({ size, stock: 0 }))
+          ).map(s => ({ size: s.size, stock: s.stock }))
         }
       },
       include: { sizes: true }
