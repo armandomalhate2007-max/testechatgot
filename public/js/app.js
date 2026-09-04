@@ -859,7 +859,8 @@ const state = window.state = {    products: [],
     }
   }
 
-  async function verify2fa() {
+  async function verify2fa(event) {
+    event?.preventDefault();
     try {
       await api(
         '/auth/2fa/verify',
