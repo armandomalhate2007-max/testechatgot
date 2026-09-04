@@ -1,22 +1,12 @@
 {
-  "name": "atelier-backend",
-  "version": "2.7.0",
+  "name": "atelier-v28",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "admin:create": "tsx src/create-admin.ts",
-    "test": "tsx --test tests/*.test.ts",
-    "check": "npm run build && npm test",
-    "e2e": "playwright test tests/e2e",
-    "ci:verify": "npm run build && npm test && npm run e2e",
-    "backup": "bash scripts/backup.sh",
-    "restore": "bash scripts/restore.sh",
-    "cleanup:uploads": "node scripts/cleanup-orphan-uploads.mjs"
+    "build": "npm run prisma:generate && npm run backend:build",
+    "backend:build": "npx tsc -p backend/backend/tsconfig.json",
+    "prisma:generate": "npx prisma generate --schema=backend/backend/prisma/schema.prisma",
+    "test": "npx tsx --test backend/backend/tests/*.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",
@@ -30,7 +20,9 @@
     "dotenv": "^16.4.0",
     "fastify": "^5.0.0",
     "otplib": "^12.0.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "@vercel/node": "^3.2.0",
+    "@vercel/blob": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -38,5 +30,9 @@
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "@playwright/test": "^1.48.0"
+  },
+  "version": "2.8.1",
+  "engines": {
+    "node": "24.x"
   }
 }
