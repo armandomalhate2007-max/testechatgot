@@ -97,9 +97,11 @@ const state = window.state = {    products: [],
   }
 
   function setPage(id) {
-    document
-      .querySelectorAll('.page-section')
-      .forEach(x => x.classList.remove('active'));
+    const pages = document.querySelectorAll('.page-section');
+
+    if (pages.length) {
+      pages.forEach(x => x.classList.remove('active'));
+    }
 
     const page = document.getElementById(id);
 
@@ -108,12 +110,15 @@ const state = window.state = {    products: [],
       return;
     }
 
-    page.classList.add('active');
+    if (id === 'store-page' || id === 'admin-page') {
+      document.getElementById('store-page')?.classList.add('hidden');
+      document.getElementById('admin-page')?.classList.add('hidden');
+      page.classList.remove('hidden');
+    } else {
+      page.classList.add('active');
+    }
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function loadStore() {
@@ -1056,13 +1061,13 @@ const state = window.state = {    products: [],
       );
 
     const tab = document.getElementById(
-  'admin-' +
-    (t === 'products'
-      ? 'products-tab'
-      : t === 'orders'
-        ? 'orders-tab'
-        : t)
-);
+      'admin-' +
+        (t === 'products'
+          ? 'products-tab'
+          : t === 'orders'
+            ? 'orders-tab'
+            : t)
+    );
 
     if (tab) {
       tab.classList.remove('hidden');
@@ -1106,6 +1111,71 @@ const state = window.state = {    products: [],
             `<div>${money(v, c)}</div>`
         )
         .join('') || '0';
+  }
+
+  function productImages(p) {
+    const images = Array.isArray(p?.images)
+      ? p.images.filter(Boolean)
+      : [];
+    if (!images.length && p?.imageUrl) images.push(p.imageUrl);
+    return images.slice(0, 6);
+  }
+
+  function renderPhotoInputs(values = []) {
+    const wrap = document.getElementById('prod-image-inputs');
+    const countEl = document.getElementById('prod-image-count');
+    if (!wrap) return;
+
+    const count = Math.min(6, Math.max(1, Number(countEl?.value) || values.length || 1));
+    const current = Array.isArray(values) ? values : [];
+
+    wrap.innerHTML = Array.from({ length: count }, (_, index) => {
+      const value = current[index] || '';
+      return `
+        <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+          <div class="aspect-square bg-gray-100 relative flex items-center justify-center overflow-hidden">
+            <img data-photo-preview="${index}" src="${esc(value || '/placeholder.svg')}" class="w-full h-full object-cover ${value ? '' : 'hidden'}" onerror="this.classList.add('hidden')">
+            <div data-photo-empty="${index}" class="text-center p-4 ${value ? 'hidden' : ''}">
+              <div class="text-3xl mb-2">📷</div>
+              <p class="text-xs text-gray-500">Adicionar fotografia</p>
+            </div>
+            ${index === 0 ? '<span class="absolute top-2 left-2 bg-black text-white text-[10px] px-2 py-1 rounded-full">Principal</span>' : ''}
+          </div>
+          <div class="p-3">
+            <label class="block text-xs font-semibold mb-2">Foto ${index + 1}</label>
+            <input data-photo-url="${index}" type="url" value="${esc(value)}" placeholder="URL da fotografia" class="w-full border rounded-lg px-3 py-2 text-xs mb-2" oninput="previewPhoto(${index}, this.value)">
+            <input data-photo-file="${index}" type="file" accept="image/jpeg,image/png,image/webp" class="w-full text-xs" onchange="previewPhotoFile(${index}, this)">
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function previewPhoto(index, value) {
+    const img = document.querySelector(`[data-photo-preview=\"${index}\"]`);
+    const empty = document.querySelector(`[data-photo-empty=\"${index}\"]`);
+    if (!img || !empty) return;
+    img.src = value || '/placeholder.svg';
+    img.classList.toggle('hidden', !value);
+    empty.classList.toggle('hidden', !!value);
+  }
+
+  function previewPhotoFile(index, input) {
+    const file = input?.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      input.value = '';
+      toast('Cada imagem deve ter no máximo 5 MB.', true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => previewPhoto(index, reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  function collectPhotoUrls() {
+    return Array.from(document.querySelectorAll('[data-photo-url]'))
+      .map(el => el.value.trim())
+      .filter(Boolean);
   }
 
   function renderAdminProducts() {
@@ -1618,119 +1688,60 @@ const state = window.state = {    products: [],
   }
 
   async function saveProduct() {
-    const id =
-      document.getElementById(
-        'prod-id'
-      ).value;
-
-    const file =
-      document.getElementById(
-        'prod-image-file'
-      ).files[0];
-
-    let imageUrl =
-      document.getElementById(
-        'prod-image'
-      ).value.trim();
+    const id = document.getElementById('prod-id')?.value || '';
 
     try {
-      if (file) {
-        if (
-          file.size >
-          5 * 1024 * 1024
-        ) {
-          throw new Error(
-            'A imagem não pode ultrapassar 5 MB.'
-          );
+      const photoInputs = Array.from(document.querySelectorAll('[data-photo-file]'));
+      const imageUrls = collectPhotoUrls();
+
+      for (let i = 0; i < photoInputs.length; i++) {
+        const file = photoInputs[i]?.files?.[0];
+        if (!file) continue;
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`A imagem ${i + 1} não pode ultrapassar 5 MB.`);
         }
-
-        const uploaded =
-          await uploadImage(file);
-
-        imageUrl =
-          uploaded.imageUrl;
-
-        document.getElementById(
-          'prod-image'
-        ).value = imageUrl;
+        const uploaded = await uploadImage(file);
+        const url = uploaded?.imageUrl || uploaded?.url;
+        if (!url) throw new Error(`Não foi possível obter a URL da imagem ${i + 1}.`);
+        imageUrls[i] = url;
       }
 
-      const sizes = [
-        'P',
-        'M',
-        'G',
-        'GG'
-      ].map(s => ({
-        size: s,
-        stock:
-          Number(
-            document.getElementById(
-              'stock-' + s
-            ).value
-          ) || 0
+      const images = imageUrls.filter(Boolean).slice(0, 6);
+      const imageUrl = images[0] || '';
+
+      const getStock = size => Number(
+        document.getElementById(`stock-${size}`)?.value ??
+        document.getElementById(`prod-stock-${size.toLowerCase()}`)?.value ?? 0
+      ) || 0;
+
+      const sizes = ['P', 'M', 'G', 'GG'].map(size => ({
+        size,
+        stock: getStock(size)
       }));
 
       const body = {
-        name:
-          document.getElementById(
-            'prod-name'
-          ).value.trim(),
-
-        ref:
-          document.getElementById(
-            'prod-ref'
-          ).value.trim(),
-
-        description:
-          document.getElementById(
-            'prod-desc'
-          ).value.trim(),
-
-        price:
-          Number(
-            document.getElementById(
-              'prod-price'
-            ).value
-          ),
-
-        currency:
-          document.getElementById(
-            'prod-currency'
-          ).value,
-
+        name: document.getElementById('prod-name')?.value.trim() || '',
+        ref: document.getElementById('prod-ref')?.value.trim() || '',
+        description: document.getElementById('prod-desc')?.value.trim() || '',
+        price: Number(document.getElementById('prod-price')?.value) || 0,
+        currency: document.getElementById('prod-currency')?.value || 'MT',
         imageUrl,
-
-        limited:
-          document.getElementById(
-            'prod-limited'
-          ).checked,
-
+        images,
+        limited: !!document.getElementById('prod-limited')?.checked,
         sizes
       };
 
-      await api(
-        id
-          ? `/products/${id}`
-          : '/products',
-        {
-          method: id
-            ? 'PATCH'
-            : 'POST',
-          body: JSON.stringify(body)
-        }
-      );
+      await api(id ? `/products/${id}` : '/products', {
+        method: id ? 'PATCH' : 'POST',
+        body: JSON.stringify(body)
+      });
 
-      document
-        .getElementById(
-          'prod-modal'
-        )
-        ?.classList.add('hidden');
-
+      document.getElementById('prod-modal')?.classList.add('hidden');
       await loadAdmin();
-
+      await loadStore();
       toast('Produto guardado.');
     } catch (e) {
-      toast(e.message, true);
+      toast(e.message || 'Não foi possível guardar o produto.', true);
     }
   }
 
@@ -2037,107 +2048,61 @@ const state = window.state = {    products: [],
   }
 
   function editProduct(id) {
-    const p =
-      state.adminProducts.find(
-        x => x.id === id
-      );
-
+    const p = state.adminProducts.find(x => x.id === id);
     if (!p) return;
 
-    document.getElementById(
-      'prod-id'
-    ).value = p.id;
+    document.getElementById('prod-id').value = p.id;
+    document.getElementById('prod-name').value = p.name || '';
+    document.getElementById('prod-ref').value = p.ref || '';
+    document.getElementById('prod-desc').value = p.description || '';
+    document.getElementById('prod-price').value = p.price ?? '';
+    document.getElementById('prod-currency').value = p.currency || state.settings.currency || 'MT';
+    document.getElementById('prod-image').value = p.imageUrl || '';
+    document.getElementById('prod-limited').checked = !!p.limited;
 
-    document.getElementById(
-      'prod-name'
-    ).value = p.name;
-
-    document.getElementById(
-      'prod-ref'
-    ).value = p.ref;
-
-    document.getElementById(
-      'prod-desc'
-    ).value =
-      p.description || '';
-
-    document.getElementById(
-      'prod-price'
-    ).value = p.price;
-
-    document.getElementById(
-      'prod-currency'
-    ).value = p.currency;
-
-    document.getElementById(
-      'prod-image'
-    ).value =
-      p.imageUrl || '';
-
-    document.getElementById(
-      'prod-limited'
-    ).checked = p.limited;
-
-    for (
-      const s of [
-        'P',
-        'M',
-        'G',
-        'GG'
-      ]
-    ) {
-      document.getElementById(
-        'stock-' + s
-      ).value =
-        p.sizes.find(
-          x => x.size === s
-        )?.stock || 0;
+    for (const size of ['P', 'M', 'G', 'GG']) {
+      const value = p.sizes?.find(x => x.size === size)?.stock || 0;
+      const el = document.getElementById(`stock-${size}`) || document.getElementById(`prod-stock-${size.toLowerCase()}`);
+      if (el) el.value = value;
     }
 
-    document
-      .getElementById(
-        'prod-modal'
-      )
-      ?.classList.remove(
-        'hidden'
-      );
+    const images = productImages(p);
+    const count = Math.max(1, Math.min(6, images.length || 1));
+    const countEl = document.getElementById('prod-image-count');
+    if (countEl) countEl.value = String(count);
+    renderPhotoInputs(images);
+
+    const title = document.getElementById('prod-modal-title');
+    if (title) title.textContent = 'Editar produto';
+
+    document.getElementById('prod-modal')?.classList.remove('hidden');
   }
 
   function newProduct() {
-    document.getElementById(
-      'prod-id'
-    ).value = '';
+    document.getElementById('prod-id').value = '';
+    document.querySelectorAll('#prod-modal input, #prod-modal textarea').forEach(el => {
+      if (el.matches('[data-photo-url]')) return;
+      if (el.type === 'checkbox') el.checked = false;
+      else if (el.type !== 'file') el.value = '';
+    });
 
-    document.getElementById(
-      'prod-image-file'
-    ).value = '';
+    for (const size of ['P', 'M', 'G', 'GG']) {
+      const el = document.getElementById(`stock-${size}`) || document.getElementById(`prod-stock-${size.toLowerCase()}`);
+      if (el) el.value = '0';
+    }
 
-    document
-      .querySelectorAll(
-        '#prod-modal input'
-      )
-      .forEach(i => {
-        if (i.type === 'checkbox') {
-          i.checked = false;
-        } else {
-          i.value = '';
-        }
-      });
+    document.getElementById('prod-currency').value = state.settings.currency || 'MT';
 
-    document.getElementById(
-      'prod-currency'
-    ).value =
-      state.settings.currency ||
-      'MT';
+    const countEl = document.getElementById('prod-image-count');
+    if (countEl) countEl.value = '1';
+    renderPhotoInputs(['']);
 
-    document
-      .getElementById(
-        'prod-modal'
-      )
-      ?.classList.remove(
-        'hidden'
-      );
+    const title = document.getElementById('prod-modal-title');
+    if (title) title.textContent = 'Novo produto';
+
+    document.getElementById('prod-modal')?.classList.remove('hidden');
   }
+
 
   async function loadPaymentSettings() {
     try {
@@ -2304,6 +2269,9 @@ const state = window.state = {    products: [],
     loadPaymentSettings;
   window.savePaymentSettings =
     savePaymentSettings;
+  window.renderPhotoInputs = renderPhotoInputs;
+  window.previewPhoto = previewPhoto;
+  window.previewPhotoFile = previewPhotoFile;
 
   document.addEventListener(
     'DOMContentLoaded',
