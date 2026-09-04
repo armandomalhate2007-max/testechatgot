@@ -16,6 +16,7 @@ import { authenticator } from 'otplib';
 import { z } from 'zod';
 import { hashToken, safeEqualHex, distanceKm, calculateDeliveryCostCents, parseMoneyCents, canTransition } from './security.js';
 import { getPaymentProvider, verifyWebhook, mapStatus } from './payments.js';
+import { put } from '@vercel/blob';
 
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT || 3000);
@@ -354,8 +355,18 @@ app.post('/api/uploads/image', { preHandler: requireCsrf }, async (req: AuthRequ
     const isPng = buffer.length >= 8 && buffer.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
     const isWebp = buffer.length >= 12 && buffer.toString('ascii',0,4) === 'RIFF' && buffer.toString('ascii',8,12) === 'WEBP';
     if ((ext === 'jpg' && !isJpeg) || (ext === 'png' && !isPng) || (ext === 'webp' && !isWebp)) return reply.code(400).send({ error: 'Conteúdo da imagem inválido' });
+    if (process.env.VERCEL) {
+      const blob = await put(`products/${filename}`, buffer, {
+        access: 'public',
+        contentType: part.mimetype,
+        addRandomSuffix: false
+      });
+      await audit(req.userId, 'IMAGE_UPLOADED', 'Upload', filename, { mimeType: part.mimetype, bytes: buffer.length, storage: 'vercel-blob' });
+      return reply.code(201).send({ imageUrl: blob.url });
+    }
+
     await writeFile(target, buffer, { flag: 'wx' });
-    await audit(req.userId, 'IMAGE_UPLOADED', 'Upload', filename, { mimeType: part.mimetype, bytes: buffer.length });
+    await audit(req.userId, 'IMAGE_UPLOADED', 'Upload', filename, { mimeType: part.mimetype, bytes: buffer.length, storage: 'local' });
     return reply.code(201).send({ imageUrl: `/uploads/${filename}` });
   } catch (e:any) {
     if (e?.code === 'FST_REQ_FILE_TOO_LARGE') return reply.code(413).send({ error: 'Imagem demasiado grande' });
