@@ -820,7 +820,9 @@ const state = window.state = {    products: [],
     }
   }
 
-  async function login() {
+  async function login(event) {
+    event?.preventDefault();
+
     const email =
       document.getElementById(
         'login-email'
@@ -886,6 +888,9 @@ const state = window.state = {    products: [],
     state.user = await api('/auth/me');
 
     setPage('admin-page');
+
+    document.getElementById('admin-login')?.classList.add('hidden');
+    document.getElementById('admin-content')?.classList.remove('hidden');
 
     await loadAdmin();
   }
