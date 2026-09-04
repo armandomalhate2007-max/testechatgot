@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-atelier}
+      POSTGRES_USER: ${POSTGRES_USER:-atelier}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the environment}
+    volumes:
+      - atelier_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  api:
+    build: ./backend/backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-atelier}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-atelier}?schema=public
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5500}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?set TOTP_ENCRYPTION_KEY in the environment}
+      PASSWORD_RESET_WEBHOOK_URL: ${PASSWORD_RESET_WEBHOOK_URL:-}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      DELIVERY_BASE_COST: ${DELIVERY_BASE_COST:-150}
+      DELIVERY_PER_KM: ${DELIVERY_PER_KM:-25}
+      DELIVERY_ORIGIN_LAT: ${DELIVERY_ORIGIN_LAT:--25.9692}
+      DELIVERY_ORIGIN_LNG: ${DELIVERY_ORIGIN_LNG:-32.5732}
+      DELIVERY_MAX_KM: ${DELIVERY_MAX_KM:-100}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      MOCK_PAYMENT_AUTO_SUCCESS: ${MOCK_PAYMENT_AUTO_SUCCESS:-false}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+      PAYMENT_API_BASE_URL: ${PAYMENT_API_BASE_URL:-}
+      PAYMENT_API_KEY: ${PAYMENT_API_KEY:-}
+      PAYMENT_CREATE_PATH: ${PAYMENT_CREATE_PATH:-/api/v1/payments}
+      PAYMENT_STATUS_PATH: ${PAYMENT_STATUS_PATH:-/api/v1/payments/}
+      MPESA_BASE_URL: ${MPESA_BASE_URL:-https://api.sandbox.vm.co.mz:18352}
+      MPESA_API_KEY: ${MPESA_API_KEY:-}
+      MPESA_PUBLIC_KEY: ${MPESA_PUBLIC_KEY:-}
+      MPESA_SERVICE_PROVIDER_CODE: ${MPESA_SERVICE_PROVIDER_CODE:-}
+      CLICPAY_BASE_URL: ${CLICPAY_BASE_URL:-https://clicpay.co.mz}
+      CLICPAY_TOKEN: ${CLICPAY_TOKEN:-}
+      CLICPAY_WALLET_ID: ${CLICPAY_WALLET_ID:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - atelier_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  atelier_uploads:
+  atelier_pg:

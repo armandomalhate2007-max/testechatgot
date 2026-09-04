@@ -1,0 +1,7 @@
+const API_BASE = window.ATELIER_API_BASE || 'http://localhost:3000/api';
+function getCookie(name){return document.cookie.split('; ').find(x=>x.startsWith(name+'='))?.split('=')[1]||null;}
+async function api(path,options={}){const method=(options.method||'GET').toUpperCase();const headers=new Headers(options.headers||{});if(options.body&&!headers.has('Content-Type'))headers.set('Content-Type','application/json');if(['POST','PATCH','PUT','DELETE'].includes(method)){const csrf=getCookie('atelier_csrf');if(csrf)headers.set('X-CSRF-Token',decodeURIComponent(csrf));}const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);try{const r=await fetch(`${API_BASE}${path}`,{...options,method,headers,credentials:'include',signal:controller.signal});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data;}catch(e){if(e?.name==='AbortError')throw new Error('O servidor demorou demasiado a responder. Tente novamente.');throw e;}finally{clearTimeout(timeout);}}
+window.AtelierAPI={api};
+
+async function uploadImage(file){const headers=new Headers();const csrf=getCookie('atelier_csrf');if(csrf)headers.set('X-CSRF-Token',decodeURIComponent(csrf));const form=new FormData();form.append('image',file);const r=await fetch(`${API_BASE}/uploads/image`,{method:'POST',headers,body:form,credentials:'include'});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data;}
+window.AtelierAPI.uploadImage=uploadImage;
