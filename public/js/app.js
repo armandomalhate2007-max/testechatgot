@@ -1056,11 +1056,13 @@ const state = window.state = {    products: [],
       );
 
     const tab = document.getElementById(
-      'admin-' +
-        (t === 'orders'
-          ? 'orders-tab'
-          : t)
-    );
+  'admin-' +
+    (t === 'products'
+      ? 'products-tab'
+      : t === 'orders'
+        ? 'orders-tab'
+        : t)
+);
 
     if (tab) {
       tab.classList.remove('hidden');
