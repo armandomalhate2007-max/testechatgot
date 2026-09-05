@@ -488,16 +488,21 @@ app.delete('/api/products/:id', { preHandler: requireCsrf }, async (req: AuthReq
 app.post('/api/products/:id/restore', { preHandler: requireCsrf }, async (req: AuthRequest, reply) => { try { const p=await prisma.product.update({ where:{id:(req.params as any).id}, data:{active:true}, include:{sizes:true} }); await audit(req.userId,'PRODUCT_RESTORED','Product',p.id,{ref:p.ref}); return p; } catch { return reply.code(404).send({error:'Produto não encontrado'}); } });
 
 async function getPaymentConfig() {
-  const rows = await prisma.setting.findMany({ where: { key: { in: ['payment.provider','payment.clicpay.baseUrl','payment.clicpay.walletId','payment.clicpay.token','payment.clicpay.webhookSecret','payment.payted.baseUrl','payment.payted.appId','payment.payted.apiKey','payment.payted.webhookSecret','payment.payted.debitPath','payment.payted.statusPath','payment.mpesa.enabled','payment.emola.enabled'] } } });
+  const rows = await prisma.setting.findMany({ where: { key: { in: ['payment.provider','payment.payted.baseUrl','payment.payted.appId','payment.payted.environment','payment.payted.token','payment.payted.webhookSecret','payment.clicpay.baseUrl','payment.clicpay.walletId','payment.clicpay.token','payment.clicpay.webhookSecret','payment.mpesa.enabled','payment.emola.enabled'] } } });
   const values=Object.fromEntries(rows.map(r=>[r.key,r.value]));
-  const provider=values['payment.provider'] || process.env.PAYMENT_PROVIDER || 'mock';
-  const payted=provider==='payted';
+  const selectedProvider=(values['payment.provider']||process.env.PAYMENT_PROVIDER||'mock').toLowerCase();
+  const paytedToken=values['payment.payted.token']?decryptSecret(values['payment.payted.token']):process.env.PAYTED_API_TOKEN;
+  const clicpayToken=values['payment.clicpay.token']?decryptSecret(values['payment.clicpay.token']):process.env.CLICPAY_TOKEN;
+  const paytedWebhook=values['payment.payted.webhookSecret']?decryptSecret(values['payment.payted.webhookSecret']):process.env.PAYTED_WEBHOOK_SECRET;
+  const clicpayWebhook=values['payment.clicpay.webhookSecret']?decryptSecret(values['payment.clicpay.webhookSecret']):process.env.PAYMENT_WEBHOOK_SECRET;
   return {
-    provider,
-    baseUrl: payted ? (values['payment.payted.baseUrl'] || process.env.PAYTED_API_BASE_URL) : (values['payment.clicpay.baseUrl'] || process.env.CLICPAY_BASE_URL),
-    walletId: payted ? (values['payment.payted.appId'] || process.env.PAYTED_APP_ID) : (values['payment.clicpay.walletId'] || process.env.CLICPAY_WALLET_ID),
-    token: payted ? (values['payment.payted.apiKey'] ? decryptSecret(values['payment.payted.apiKey']) : process.env.PAYTED_API_KEY) : (values['payment.clicpay.token'] ? decryptSecret(values['payment.clicpay.token']) : process.env.CLICPAY_TOKEN),
-    webhookSecret: payted ? (values['payment.payted.webhookSecret'] ? decryptSecret(values['payment.payted.webhookSecret']) : process.env.PAYTED_WEBHOOK_SECRET) : (values['payment.clicpay.webhookSecret'] ? decryptSecret(values['payment.clicpay.webhookSecret']) : process.env.PAYMENT_WEBHOOK_SECRET),
+    provider: selectedProvider,
+    baseUrl: selectedProvider==='clicpay' ? (values['payment.clicpay.baseUrl'] || process.env.CLICPAY_BASE_URL) : (values['payment.payted.baseUrl'] || process.env.PAYTED_BASE_URL || 'https://pay.ted.co.mz/api'),
+    appId: values['payment.payted.appId'] || process.env.PAYTED_APP_ID || '1',
+    environment: values['payment.payted.environment'] || process.env.PAYTED_ENVIRONMENT || 'sandbox',
+    walletId: values['payment.clicpay.walletId'] || process.env.CLICPAY_WALLET_ID,
+    token: selectedProvider==='clicpay' ? clicpayToken : paytedToken,
+    webhookSecret: selectedProvider==='clicpay' ? clicpayWebhook : paytedWebhook,
     mpesaEnabled: values['payment.mpesa.enabled'] !== 'false',
     emolaEnabled: values['payment.emola.enabled'] !== 'false'
   };
@@ -555,7 +560,7 @@ async function reconcilePayment(paymentId:string){
   const payment=await prisma.payment.findUnique({where:{id:paymentId},include:{order:{include:{items:true}}}});
   if(!payment || !payment.providerReference || payment.provider==='manual') return payment;
   const paymentConfig=await getPaymentConfig();
-  const provider=getPaymentProvider({provider:paymentConfig.provider,baseUrl:paymentConfig.baseUrl,token:paymentConfig.token,walletId:paymentConfig.walletId});
+  const provider=getPaymentProvider({provider:paymentConfig.provider,baseUrl:paymentConfig.baseUrl,token:paymentConfig.token,walletId:paymentConfig.walletId,appId:paymentConfig.appId,environment:paymentConfig.environment});
   if(!provider.query) return payment;
   const result=await provider.query(payment.providerReference);
   const now=new Date();
@@ -588,7 +593,7 @@ app.post('/api/orders/:id/payments', { config:{rateLimit:{max:10,timeWindow:'1 m
   }
   if(['MPESA','EMOLA'].includes(parsed.data.method) && order.currency!=='MT')return reply.code(400).send({error:'M-Pesa/e-Mola só estão disponíveis para pagamentos em MT'});
   if(!order.customerPhone)return reply.code(400).send({error:'Telefone do cliente em falta'});
-  const key=`${order.id}:${parsed.data.method}:v1`; const paymentConfig=await getPaymentConfig(); if(parsed.data.method==='MPESA'&&!paymentConfig.mpesaEnabled)return reply.code(400).send({error:'M-Pesa está temporariamente indisponível'}); if(parsed.data.method==='EMOLA'&&!paymentConfig.emolaEnabled)return reply.code(400).send({error:'e-Mola está temporariamente indisponível'}); const provider=getPaymentProvider({provider:paymentConfig.provider,baseUrl:paymentConfig.baseUrl,token:paymentConfig.token,walletId:paymentConfig.walletId});
+  const key=`${order.id}:${parsed.data.method}:v1`; const paymentConfig=await getPaymentConfig(); if(parsed.data.method==='MPESA'&&!paymentConfig.mpesaEnabled)return reply.code(400).send({error:'M-Pesa está temporariamente indisponível'}); if(parsed.data.method==='EMOLA'&&!paymentConfig.emolaEnabled)return reply.code(400).send({error:'e-Mola está temporariamente indisponível'}); const provider=getPaymentProvider({provider:paymentConfig.provider,baseUrl:paymentConfig.baseUrl,token:paymentConfig.token,walletId:paymentConfig.walletId,appId:paymentConfig.appId,environment:paymentConfig.environment});
   const pending=await prisma.payment.create({data:{orderId:order.id,method:parsed.data.method,status:'PROCESSING',provider:provider.name,idempotencyKey:key,amount:order.total,currency:order.currency,customerPhone:order.customerPhone}}).catch(async(e:any)=>{if(e?.code==='P2002')return prisma.payment.findUniqueOrThrow({where:{idempotencyKey:key}});throw e;});
   if(pending.providerReference)return reply.send(pending);
   try{
@@ -618,16 +623,14 @@ app.post('/api/payments/:id/refresh', { config:{rateLimit:{max:12,timeWindow:'1 
 });
 
 app.post('/api/payments/webhook', { config:{rateLimit:{max:120,timeWindow:'1 minute'}} }, async(req,reply)=>{
-  const raw=req.rawBody||JSON.stringify(req.body||{}); const paymentConfig=await getPaymentConfig(); const sig=(typeof req.headers['x-payted-signature']==='string'?req.headers['x-payted-signature']:undefined) || (typeof req.headers['x-webhook-signature']==='string'?req.headers['x-webhook-signature']:undefined) || (typeof req.headers['x-clicpay-signature']==='string'?req.headers['x-clicpay-signature']:undefined);
+  const raw=req.rawBody||JSON.stringify(req.body||{}); const paymentConfig=await getPaymentConfig(); const sig=(typeof req.headers['x-webhook-signature']==='string'?req.headers['x-webhook-signature']:undefined) || (typeof req.headers['x-clicpay-signature']==='string'?req.headers['x-clicpay-signature']:undefined) || (typeof req.headers['x-payted-signature']==='string'?req.headers['x-payted-signature']:undefined);
   if(paymentConfig.provider!=='mock' && !verifyWebhook(raw,sig,paymentConfig.webhookSecret))return reply.code(401).send({error:'Assinatura inválida'});
-  const body:any=req.body||{}; const data:any=body.data&&typeof body.data==='object'?body.data:body; const ref=String(data.referencia_externa||data.reference||data.clicpay_reference||data.provider_reference||data.transacaoId||data.transaction_id||data.pagamento_id||data.id||''); if(!ref)return reply.code(400).send({error:'Referência em falta'});
-  let payment=await prisma.payment.findUnique({where:{providerReference:ref},include:{order:true}});
-  if(!payment) payment=await prisma.payment.findFirst({where:{orderId:ref},include:{order:true}});
-  if(!payment)return reply.code(202).send({ok:true});
+  const body:any=req.body||{}; const data:any=body.data&&typeof body.data==='object'?body.data:body; const ref=String(data.clicpay_reference||data.provider_reference||data.transacao_id||data.transacaoId||data.pagamento_id||data.payment_id||data.id||data.transaction_id||data.reference||data.referencia_externa||''); if(!ref)return reply.code(400).send({error:'Referência em falta'});
+  const payment=await prisma.payment.findUnique({where:{providerReference:ref},include:{order:true}}); if(!payment)return reply.code(202).send({ok:true});
   const webhookAmount=Number(data.amount??data.received_amount); const expectedAmount=Number(payment.amount); if(Number.isFinite(webhookAmount)&&Math.abs(webhookAmount-expectedAmount)>0.001)return reply.code(400).send({error:'Valor do pagamento não corresponde ao pedido'});
   const webhookCurrency=String(data.currency||'MZN').toUpperCase(); if(payment.currency==='MT'&&webhookCurrency!=='MZN')return reply.code(400).send({error:'Moeda do pagamento não corresponde ao pedido'});
   const status=mapStatus(data.status);
-  const eventId=typeof req.headers['x-webhook-id']==='string'?req.headers['x-webhook-id']:undefined;
+  const eventId=(typeof req.headers['x-webhook-id']==='string'?req.headers['x-webhook-id']:undefined) || (typeof req.headers['x-payted-event-id']==='string'?req.headers['x-payted-event-id']:undefined);
   if(eventId){const seen=await prisma.paymentEvent.findUnique({where:{providerEventId:eventId}}); if(seen)return {ok:true};}
   const updated=await prisma.$transaction(async tx=>{
     const current=await tx.payment.findUnique({where:{id:payment.id},include:{order:{include:{items:true}}}});
@@ -703,31 +706,22 @@ app.get('/api/audit', { preHandler: requireAdmin }, async () => {
 });
 
 app.get('/api/settings/public', async()=>{const rows=await prisma.setting.findMany({where:{key:{in:['shopName','currency','whatsapp']}}});return Object.fromEntries(rows.map(x=>[x.key,x.value]));});
-app.get('/api/settings', {preHandler:requireAdmin}, async()=>{const rows=await prisma.setting.findMany({where:{key:{notIn:['payment.clicpay.token','payment.clicpay.webhookSecret']}}});return Object.fromEntries(rows.map(x=>[x.key,x.value]));});
+app.get('/api/settings', {preHandler:requireAdmin}, async()=>{const rows=await prisma.setting.findMany({where:{key:{notIn:['payment.clicpay.token','payment.clicpay.webhookSecret','payment.payted.token','payment.payted.webhookSecret']}}});return Object.fromEntries(rows.map(x=>[x.key,x.value]));});
 app.patch('/api/settings', {preHandler:requireCsrf}, async(req:AuthRequest,reply)=>{const parsed=z.object({shopName:z.string().trim().min(1).max(120).optional(),currency:z.enum(['MT','EUR','USD','BRL','GBP']).optional(),whatsapp:z.string().regex(/^\d{8,15}$/).optional(),deliveryBaseCost:z.number().min(0).max(100000).refine(v=>Number.isInteger(Math.round(v*100)),'Valor inválido').optional(),deliveryPerKm:z.number().min(0).max(100000).refine(v=>Number.isInteger(Math.round(v*100)),'Valor inválido').optional(),deliveryOriginLat:z.number().min(-90).max(90).optional(),deliveryOriginLng:z.number().min(-180).max(180).optional(),deliveryMaxKm:z.number().positive().max(10000).optional()}).strict().safeParse(req.body);if(!parsed.success)return reply.code(400).send({error:'Configuração inválida'});await prisma.$transaction(Object.entries(parsed.data).map(([key,value])=>prisma.setting.upsert({where:{key},create:{key,value:String(value)},update:{value:String(value)}}))); await audit(req.userId, 'SETTINGS_UPDATED', 'Setting', undefined, parsed.data); return {ok:true};});
 
 app.get('/api/settings/payments', {preHandler: requireAdmin}, async()=>{
-  const rows=await prisma.setting.findMany({where:{key:{startsWith:'payment.'}}});
-  const v=Object.fromEntries(rows.map(r=>[r.key,r.value]));
+  const rows=await prisma.setting.findMany({where:{key:{startsWith:'payment.'}}}); const v=Object.fromEntries(rows.map(r=>[r.key,r.value]));
   const provider=v['payment.provider']||process.env.PAYMENT_PROVIDER||'mock';
-  if(provider==='payted') return {provider, paytedBaseUrl:v['payment.payted.baseUrl']||process.env.PAYTED_API_BASE_URL||'https://pay.ted.co.mz/api', appId:v['payment.payted.appId']||process.env.PAYTED_APP_ID||'', tokenConfigured:Boolean(v['payment.payted.apiKey']||process.env.PAYTED_API_KEY), webhookSecretConfigured:Boolean(v['payment.payted.webhookSecret']||process.env.PAYTED_WEBHOOK_SECRET), mpesaEnabled:v['payment.mpesa.enabled']!=='false', emolaEnabled:v['payment.emola.enabled']!=='false'};
-  return {provider,clicpayBaseUrl:v['payment.clicpay.baseUrl']||process.env.CLICPAY_BASE_URL||'https://clicpay.co.mz',walletId:v['payment.clicpay.walletId']||'',tokenConfigured:Boolean(v['payment.clicpay.token']||process.env.CLICPAY_TOKEN),webhookSecretConfigured:Boolean(v['payment.clicpay.webhookSecret']||process.env.PAYMENT_WEBHOOK_SECRET),mpesaEnabled:v['payment.mpesa.enabled']!=='false',emolaEnabled:v['payment.emola.enabled']!=='false'};
+  return {provider,paytedBaseUrl:v['payment.payted.baseUrl']||process.env.PAYTED_BASE_URL||'https://pay.ted.co.mz/api',paytedAppId:v['payment.payted.appId']||process.env.PAYTED_APP_ID||'1',paytedEnvironment:v['payment.payted.environment']||process.env.PAYTED_ENVIRONMENT||'sandbox',tokenConfigured:Boolean(v['payment.payted.token']||process.env.PAYTED_API_TOKEN),webhookSecretConfigured:Boolean(v['payment.payted.webhookSecret']||process.env.PAYTED_WEBHOOK_SECRET||v['payment.clicpay.webhookSecret']||process.env.PAYMENT_WEBHOOK_SECRET),walletId:v['payment.clicpay.walletId']||'',clicpayBaseUrl:v['payment.clicpay.baseUrl']||process.env.CLICPAY_BASE_URL||'https://clicpay.co.mz',mpesaEnabled:v['payment.mpesa.enabled']!=='false',emolaEnabled:v['payment.emola.enabled']!=='false'};
 });
 app.patch('/api/settings/payments', {preHandler: requireCsrf}, async(req:AuthRequest,reply)=>{
-  const parsed=z.object({provider:z.enum(['payted','clicpay','mock']).default('payted'),paytedBaseUrl:z.string().url().max(300).optional(),appId:z.string().trim().max(100).optional(),apiKey:z.string().trim().max(500).optional(),paytedWebhookSecret:z.string().trim().max(500).optional(),clicpayBaseUrl:z.string().url().max(300).optional(),walletId:z.string().trim().max(100).optional(),token:z.string().trim().max(500).optional(),webhookSecret:z.string().trim().max(500).optional(),mpesaEnabled:z.boolean().optional(),emolaEnabled:z.boolean().optional()}).strict().safeParse(req.body);
+  const parsed=z.object({provider:z.enum(['payted','clicpay','mock']).default('payted'),paytedBaseUrl:z.string().url().max(300).optional(),paytedAppId:z.string().trim().max(100).optional(),paytedEnvironment:z.enum(['sandbox','live']).optional(),token:z.string().trim().max(1000).optional(),webhookSecret:z.string().trim().max(1000).optional(),walletId:z.string().trim().max(100).optional(),clicpayBaseUrl:z.string().url().max(300).optional(),mpesaEnabled:z.boolean().optional(),emolaEnabled:z.boolean().optional()}).strict().safeParse(req.body);
   if(!parsed.success)return reply.code(400).send({error:'Configuração de pagamentos inválida'});
-  const entries:Array<[string,string]>=[['payment.provider',parsed.data.provider],['payment.mpesa.enabled',String(parsed.data.mpesaEnabled!==false)],['payment.emola.enabled',String(parsed.data.emolaEnabled!==false)]];
-  if(parsed.data.provider==='payted'){
-    entries.push(['payment.payted.baseUrl',parsed.data.paytedBaseUrl||'https://pay.ted.co.mz/api'],['payment.payted.appId',parsed.data.appId||'']);
-    if(parsed.data.apiKey) entries.push(['payment.payted.apiKey',encryptSecret(parsed.data.apiKey)]);
-    if(parsed.data.paytedWebhookSecret) entries.push(['payment.payted.webhookSecret',encryptSecret(parsed.data.paytedWebhookSecret)]);
-  } else {
-    entries.push(['payment.clicpay.baseUrl',parsed.data.clicpayBaseUrl||'https://clicpay.co.mz'],['payment.clicpay.walletId',parsed.data.walletId||'']);
-    if(parsed.data.token) entries.push(['payment.clicpay.token',encryptSecret(parsed.data.token)]);
-    if(parsed.data.webhookSecret) entries.push(['payment.clicpay.webhookSecret',encryptSecret(parsed.data.webhookSecret)]);
-  }
+  const entries:Array<[string,string]>=[['payment.provider',parsed.data.provider],['payment.payted.baseUrl',parsed.data.paytedBaseUrl||'https://pay.ted.co.mz/api'],['payment.payted.appId',parsed.data.paytedAppId||'1'],['payment.payted.environment',parsed.data.paytedEnvironment||'sandbox'],['payment.clicpay.baseUrl',parsed.data.clicpayBaseUrl||'https://clicpay.co.mz'],['payment.clicpay.walletId',parsed.data.walletId||''],['payment.mpesa.enabled',String(parsed.data.mpesaEnabled!==false)],['payment.emola.enabled',String(parsed.data.emolaEnabled!==false)]];
+  if(parsed.data.token)entries.push(['payment.payted.token',encryptSecret(parsed.data.token)]);
+  if(parsed.data.webhookSecret)entries.push(['payment.payted.webhookSecret',encryptSecret(parsed.data.webhookSecret)]);
   await prisma.$transaction(entries.map(([key,value])=>prisma.setting.upsert({where:{key},create:{key,value},update:{value}})));
-  await audit(req.userId,'PAYMENT_SETTINGS_UPDATED','Setting',undefined,{provider:parsed.data.provider,appId:parsed.data.appId||null,tokenUpdated:Boolean(parsed.data.apiKey||parsed.data.token),webhookSecretUpdated:Boolean(parsed.data.paytedWebhookSecret||parsed.data.webhookSecret),mpesaEnabled:parsed.data.mpesaEnabled!==false,emolaEnabled:parsed.data.emolaEnabled!==false});
+  await audit(req.userId,'PAYMENT_SETTINGS_UPDATED','Setting',undefined,{provider:parsed.data.provider,paytedAppId:parsed.data.paytedAppId||'1',paytedEnvironment:parsed.data.paytedEnvironment||'sandbox',tokenUpdated:Boolean(parsed.data.token),webhookSecretUpdated:Boolean(parsed.data.webhookSecret),mpesaEnabled:parsed.data.mpesaEnabled!==false,emolaEnabled:parsed.data.emolaEnabled!==false});
   return {ok:true};
 });
 

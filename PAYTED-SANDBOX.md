@@ -1,19 +1,26 @@
-# PayTED Sandbox — Atelier v28
-
-Integração adicionada para PayTED com e-Mola/M-Pesa. O segredo fica no backend/BD encriptado; nunca no frontend.
+# PayTED + e-Mola Sandbox
 
 ## Configuração no ADM
+
+ADM → Configurações → Pagamentos:
 - Gateway: PayTED
-- App ID: ID da App PayTED
-- API Key / Secret Key: Secret Key (Sandbox)
-- Webhook Secret: Webhook Secret da PayTED
-- Base URL Sandbox: `https://pay.ted.co.mz/api`
+- Ambiente: Sandbox
+- App ID: 1 por padrão. Se a PayTED fornecer outro identificador, substitua.
+- Secret Key / API Token: usar a Secret Key Sandbox da PayTED (`sk_sandbox_...`)
+- Webhook Secret: usar o Webhook Secret da PayTED
 - e-Mola: ativo
 
+A Publishable Key não é necessária no backend para este fluxo.
+
 ## Webhook
+
+URL pública configurada na PayTED:
 `https://testechatgot.vercel.app/api/payments/webhook`
 
-## Teste e-Mola
-A documentação/SDK oficial da PayTED usa débito directo com `app_id`, `valor_total`, `referencia_externa`, `metodo` e `numero_cliente`. O SDK indica `emola` como método suportado e consulta por ID/referência.
+## Observação importante
 
-O projecto mantém os caminhos configuráveis por variáveis de ambiente `PAYTED_DEBIT_PATH` e `PAYTED_STATUS_PATH` caso a conta PayTED apresente rotas diferentes.
+A documentação/SDK público da PayTED confirma que o débito direto usa `app_id`, `valor_total`, `referencia_externa`, `metodo` e `numero_cliente`, e que o método e-Mola usa o código `emola`. O painel mostrado pelo comerciante pode não exibir o App ID. O projeto usa `1` como padrão para permitir o primeiro teste; se a API responder que o `app_id` está incorreto, será necessário usar o identificador fornecido pela PayTED.
+
+## Segurança
+
+Nunca colocar Secret Key ou Webhook Secret no frontend, GitHub ou chat.

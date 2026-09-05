@@ -2148,14 +2148,12 @@ const state = window.state = {    products: [],
         'pay-provider'
       ).value = s.provider;
 
-      const appId=document.getElementById('pay-app-id');
-      const payBase=document.getElementById('pay-base-url');
-      const wallet=document.getElementById('pay-wallet');
-      if(appId) appId.value=s.appId||'';
-      if(payBase) payBase.value=s.paytedBaseUrl||'https://pay.ted.co.mz/api';
-      if(wallet) wallet.value=s.walletId||'';
-      document.getElementById('payted-fields')?.classList.toggle('hidden', s.provider!=='payted');
-      document.getElementById('clicpay-fields')?.classList.toggle('hidden', s.provider==='payted');
+      const appIdEl = document.getElementById('pay-app-id');
+      if (appIdEl) appIdEl.value = s.paytedAppId || '1';
+      const envEl = document.getElementById('pay-environment');
+      if (envEl) envEl.value = s.paytedEnvironment || 'sandbox';
+      const walletEl = document.getElementById('pay-wallet');
+      if (walletEl) walletEl.value = s.walletId || '';
 
       document.getElementById(
         'pay-mpesa'
@@ -2191,11 +2189,11 @@ const state = window.state = {    products: [],
     }
   }
 
-  document.getElementById('pay-provider')?.addEventListener('change', (e)=>{
-    const v=e.target.value;
-    document.getElementById('payted-fields')?.classList.toggle('hidden', v!=='payted');
-    document.getElementById('clicpay-fields')?.classList.toggle('hidden', v==='payted');
-  });
+  function updatePaymentProviderFields() {
+    const provider = document.getElementById('pay-provider')?.value;
+    document.getElementById('payted-fields')?.classList.toggle('hidden', provider !== 'payted');
+    document.getElementById('clicpay-fields')?.classList.toggle('hidden', provider !== 'clicpay');
+  }
 
   async function savePaymentSettings() {
     try {
@@ -2204,11 +2202,10 @@ const state = window.state = {    products: [],
           'pay-token'
         ).value.trim();
 
-      const webhookSecret = document.getElementById('pay-webhook')?.value.trim() || '';
-      const paytedWebhookSecret = document.getElementById('pay-payted-webhook')?.value.trim() || '';
-      const apiKey = document.getElementById('pay-api-key')?.value.trim() || '';
-      const appId = document.getElementById('pay-app-id')?.value.trim() || '';
-      const paytedBaseUrl = document.getElementById('pay-base-url')?.value.trim() || 'https://pay.ted.co.mz/api';
+      const webhookSecret =
+        document.getElementById(
+          'pay-webhook'
+        ).value.trim();
 
       await api(
         '/settings/payments',
@@ -2220,13 +2217,18 @@ const state = window.state = {    products: [],
                 'pay-provider'
               ).value,
 
-            appId: appId || undefined,
-            apiKey: apiKey || undefined,
-            paytedBaseUrl: paytedBaseUrl || undefined,
-            paytedWebhookSecret: paytedWebhookSecret || undefined,
-            walletId: document.getElementById('pay-wallet')?.value.trim() || undefined,
-            token: token || undefined,
-            webhookSecret: webhookSecret || undefined,
+            paytedAppId: (document.getElementById('pay-app-id')?.value || '1').trim(),
+
+            paytedEnvironment: document.getElementById('pay-environment')?.value || 'sandbox',
+
+            walletId: document.getElementById('pay-wallet')?.value.trim() || '',
+
+            token:
+              token || undefined,
+
+            webhookSecret:
+              webhookSecret ||
+              undefined,
 
             mpesaEnabled:
               document.getElementById(
@@ -2241,10 +2243,13 @@ const state = window.state = {    products: [],
         }
       );
 
-      document.getElementById('pay-token').value = '';
-      document.getElementById('pay-webhook').value = '';
-      if(document.getElementById('pay-api-key')) document.getElementById('pay-api-key').value = '';
-      if(document.getElementById('pay-payted-webhook')) document.getElementById('pay-payted-webhook').value = '';
+      document.getElementById(
+        'pay-token'
+      ).value = '';
+
+      document.getElementById(
+        'pay-webhook'
+      ).value = '';
 
       toast(
         'Pagamentos automáticos configurados.'
@@ -2310,6 +2315,9 @@ const state = window.state = {    products: [],
   window.renderPhotoInputs = renderPhotoInputs;
   window.previewPhoto = previewPhoto;
   window.previewPhotoFile = previewPhotoFile;
+
+  document.getElementById('pay-provider')?.addEventListener('change', updatePaymentProviderFields);
+  updatePaymentProviderFields();
 
   document.addEventListener(
     'DOMContentLoaded',
