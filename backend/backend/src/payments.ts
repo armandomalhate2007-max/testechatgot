@@ -63,6 +63,36 @@ class PayTedProvider implements PaymentProvider{
   }
 }
 
+class ClicPayProvider implements PaymentProvider{
+  name='clicpay';
+  private base:string; private token:string; private walletId:string;
+  constructor(cfg:ProviderConfig={}){
+    this.base=(cfg.baseUrl||process.env.CLICPAY_BASE_URL||'https://clicpay.co.mz').replace(/\/$/,'');
+    this.token=cfg.token||process.env.CLICPAY_TOKEN||'';
+    this.walletId=cfg.walletId||process.env.CLICPAY_WALLET_ID||'';
+  }
+  private async request(path:string,init:RequestInit={}){
+    if(!this.token||!this.walletId) throw new Error('PAYMENT_PROVIDER_NOT_CONFIGURED');
+    const r=await fetch(`${this.base}${path}`,{...init,headers:{Authorization:`Bearer ${this.token}`,'Content-Type':'application/json',Accept:'application/json',...(init.headers||{})},signal:AbortSignal.timeout(15000)});
+    const raw:any=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(raw?.message||raw?.error||`PAYMENT_HTTP_${r.status}`);
+    return raw;
+  }
+  async createCharge(i:ChargeInput){
+    if(i.method!=='EMOLA'&&i.method!=='MPESA') throw new Error('PAYMENT_METHOD_UNSUPPORTED');
+    if(i.currency!=='MT') throw new Error('CLICPAY_REQUIRES_MT');
+    const method=i.method==='EMOLA'?'emola':'mpesa';
+    const raw:any=await this.request(`/api/v2/wallets/${encodeURIComponent(this.walletId)}/c2b/${method}`,{method:'POST',headers:{'Idempotency-Key':i.idempotencyKey},body:JSON.stringify({msisdn:localPhone(i.phone),amount:Number(i.amount),reference_description:i.reference,internal_notes:`Atelier ${i.reference}`})});
+    const data:any=raw?.data||raw;
+    return {providerReference:String(data?.clicpay_reference||data?.transaction_id||data?.id||i.reference),status:mapStatus(data?.status||raw?.status),raw};
+  }
+  async query(providerReference:string){
+    const raw:any=await this.request(`/api/v2/transactions/${encodeURIComponent(providerReference)}/status`,{method:'GET'});
+    const data:any=raw?.data||raw;
+    return {providerReference,status:mapStatus(data?.status||raw?.status),raw};
+  }
+}
+
 class MpesaProvider implements PaymentProvider{name='mpesa';private base=(process.env.MPESA_BASE_URL||'https://api.sandbox.vm.co.mz:18352').replace(/\/$/,'');private auth(){const api=process.env.MPESA_API_KEY||'',pub=(process.env.MPESA_PUBLIC_KEY||'').replace(/\\n/g,'\n');if(!api||!pub)throw new Error('PAYMENT_PROVIDER_NOT_CONFIGURED');return publicEncrypt({key:pub,padding:constants.RSA_PKCS1_PADDING},Buffer.from(api)).toString('base64')}async createCharge(i:ChargeInput){if(i.method!=='MPESA')throw new Error('PAYMENT_METHOD_UNSUPPORTED');if(i.currency!=='MT')throw new Error('MPESA_REQUIRES_MT');const sp=process.env.MPESA_SERVICE_PROVIDER_CODE||'';if(!sp)throw new Error('PAYMENT_PROVIDER_NOT_CONFIGURED');const r=await fetch(`${this.base}/ipg/v1x/c2bPayment/singleStage/`,{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${this.auth()}`,'Content-Type':'application/json',Origin:'developer.mpesa.vm.co.mz'},body:JSON.stringify({input_TransactionReference:i.reference.slice(-20),input_CustomerMSISDN:intlPhone(i.phone),input_Amount:Number(i.amount).toFixed(2),input_ThirdPartyReference:i.reference.replace(/[^A-Za-z0-9]/g,'').slice(-20),input_ServiceProviderCode:sp})});const raw:any=await r.json().catch(()=>({}));const ok=r.ok&&raw.output_ResponseCode==='INS-0';return{providerReference:String(raw.output_ConversationID||raw.output_TransactionID||i.reference),status:(ok?'PAID':'FAILED') as ProviderStatus,raw}}}
 export function getPaymentProvider(config:ProviderConfig={}):PaymentProvider{const n=(config.provider||process.env.PAYMENT_PROVIDER||'mock').toLowerCase();if(n==='pagar')return new PagarProvider();if(n==='payted')return new PayTedProvider(config);if(n==='clicpay')return new ClicPayProvider(config);if(n==='mpesa')return new MpesaProvider();return new MockProvider()}
 export function verifyWebhook(raw:string,signature:string|undefined,secretOverride?:string){const secret=secretOverride||process.env.PAYMENT_WEBHOOK_SECRET||'';if(!secret||!signature)return false;const expected=createHmac('sha256',secret).update(raw).digest('hex'),supplied=signature.replace(/^sha256=/,'');try{return expected.length===supplied.length&&timingSafeEqual(Buffer.from(expected),Buffer.from(supplied))}catch{return false}}
