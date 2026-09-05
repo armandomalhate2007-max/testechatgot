@@ -2148,10 +2148,14 @@ const state = window.state = {    products: [],
         'pay-provider'
       ).value = s.provider;
 
-      document.getElementById(
-        'pay-wallet'
-      ).value =
-        s.walletId || '';
+      const appId=document.getElementById('pay-app-id');
+      const payBase=document.getElementById('pay-base-url');
+      const wallet=document.getElementById('pay-wallet');
+      if(appId) appId.value=s.appId||'';
+      if(payBase) payBase.value=s.paytedBaseUrl||'https://pay.ted.co.mz/api';
+      if(wallet) wallet.value=s.walletId||'';
+      document.getElementById('payted-fields')?.classList.toggle('hidden', s.provider!=='payted');
+      document.getElementById('clicpay-fields')?.classList.toggle('hidden', s.provider==='payted');
 
       document.getElementById(
         'pay-mpesa'
@@ -2187,6 +2191,12 @@ const state = window.state = {    products: [],
     }
   }
 
+  document.getElementById('pay-provider')?.addEventListener('change', (e)=>{
+    const v=e.target.value;
+    document.getElementById('payted-fields')?.classList.toggle('hidden', v!=='payted');
+    document.getElementById('clicpay-fields')?.classList.toggle('hidden', v==='payted');
+  });
+
   async function savePaymentSettings() {
     try {
       const token =
@@ -2194,10 +2204,11 @@ const state = window.state = {    products: [],
           'pay-token'
         ).value.trim();
 
-      const webhookSecret =
-        document.getElementById(
-          'pay-webhook'
-        ).value.trim();
+      const webhookSecret = document.getElementById('pay-webhook')?.value.trim() || '';
+      const paytedWebhookSecret = document.getElementById('pay-payted-webhook')?.value.trim() || '';
+      const apiKey = document.getElementById('pay-api-key')?.value.trim() || '';
+      const appId = document.getElementById('pay-app-id')?.value.trim() || '';
+      const paytedBaseUrl = document.getElementById('pay-base-url')?.value.trim() || 'https://pay.ted.co.mz/api';
 
       await api(
         '/settings/payments',
@@ -2209,17 +2220,13 @@ const state = window.state = {    products: [],
                 'pay-provider'
               ).value,
 
-            walletId:
-              document.getElementById(
-                'pay-wallet'
-              ).value.trim(),
-
-            token:
-              token || undefined,
-
-            webhookSecret:
-              webhookSecret ||
-              undefined,
+            appId: appId || undefined,
+            apiKey: apiKey || undefined,
+            paytedBaseUrl: paytedBaseUrl || undefined,
+            paytedWebhookSecret: paytedWebhookSecret || undefined,
+            walletId: document.getElementById('pay-wallet')?.value.trim() || undefined,
+            token: token || undefined,
+            webhookSecret: webhookSecret || undefined,
 
             mpesaEnabled:
               document.getElementById(
@@ -2234,13 +2241,10 @@ const state = window.state = {    products: [],
         }
       );
 
-      document.getElementById(
-        'pay-token'
-      ).value = '';
-
-      document.getElementById(
-        'pay-webhook'
-      ).value = '';
+      document.getElementById('pay-token').value = '';
+      document.getElementById('pay-webhook').value = '';
+      if(document.getElementById('pay-api-key')) document.getElementById('pay-api-key').value = '';
+      if(document.getElementById('pay-payted-webhook')) document.getElementById('pay-payted-webhook').value = '';
 
       toast(
         'Pagamentos automáticos configurados.'
